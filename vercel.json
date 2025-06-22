@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/api.py"
+    }
+  ],
+  "env": {
+    "TMDB_API_KEY": "f584c416fc7b0c9c1591acabafc13a72",
+    "CORS_ORIGINS": "https://project-ia-zeta.vercel.app"
+  }
+}

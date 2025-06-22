@@ -1,8 +1,8 @@
 import { createStore } from 'vuex';
 import axios from 'axios';
 
-// URL de base de l'API
-const API_URL = 'http://localhost:5000/api';
+// URL de base de l'API - utilise la variable d'environnement ou une valeur par défaut
+const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:5000/api';
 
 export default createStore({
   state: {
