@@ -64,28 +64,5 @@
             ]
         },
         "history": []
-    },
-    {
-        "id": 3,
-        "name": "nathan",
-        "preferences": {
-            "genres_likes": [
-                "Action & Adventure",
-                "Animation",
-                "Science-Fiction & Fantastique"
-            ],
-            "genres_dislikes": [
-                "Kids",
-                "Romance"
-            ],
-            "directors_likes": [],
-            "keywords_likes": [],
-            "mood_preferences": [],
-            "rating_min": 8.5,
-            "streaming_services": [
-                "netflix"
-            ]
-        },
-        "history": []
     }
 ]
