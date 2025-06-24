@@ -21,43 +21,6 @@ from data.user_database import load_users, update_user
 # Charger la liste des utilisateurs
 users = load_users()
 
-# Fonction pour recharger la liste des utilisateurs
-def reload_users():
-    """
-    Recharge la liste des utilisateurs depuis la base de données.
-    À utiliser après avoir ajouté un nouvel utilisateur.
-    Cette fonction met à jour la liste globale des utilisateurs dans ce module.
-    
-    Returns:
-        La liste des utilisateurs mise à jour
-    """
-    global users
-    
-    # Importer les utilisateurs par défaut au cas où
-    from data.movies_series_database import users as default_users
-    
-    # Charger les utilisateurs depuis la base de données
-    try:
-        loaded_users = load_users()
-        
-        # Vérifier que nous avons bien récupéré des utilisateurs
-        if not loaded_users or not isinstance(loaded_users, list) or len(loaded_users) == 0:
-            print("ATTENTION: Aucun utilisateur chargé depuis la base de données, utilisation des utilisateurs par défaut")
-            users = default_users.copy()  # Utiliser une copie pour éviter les mutations involontaires
-        else:
-            users = loaded_users
-            print(f"Utilisateurs rechargés dans le moteur de recommandation: {len(users)} utilisateurs")
-            
-            # Debug: afficher les IDs pour vérification
-            user_ids = [u.get('id') for u in users]
-            print(f"IDs des utilisateurs chargés: {user_ids}")
-    except Exception as e:
-        print(f"ERREUR lors du rechargement des utilisateurs: {e}")
-        print(f"Utilisation des utilisateurs par défaut ({len(default_users)} utilisateurs)")
-        users = default_users.copy()  # Utiliser une copie pour éviter les mutations involontaires
-    
-    return users
-
 # Importer la clé API depuis le fichier de configuration
 # La clé est définie par l'administrateur et utilisée pour toutes les requêtes
 try:
@@ -216,35 +179,17 @@ def get_online_genres():
     Returns:
         Liste des genres de films et séries disponibles
     """
-    try:
-        movie_genres = get_genre_list("movie")
-        tv_genres = get_genre_list("tv")
-        
-        # Fusionner les deux listes de genres et éliminer les doublons
-        all_genres = set()
-        for genre_name in movie_genres.values():
-            all_genres.add(genre_name)
-        for genre_name in tv_genres.values():
-            all_genres.add(genre_name)
-        
-        genres_list = sorted(list(all_genres))
-        
-        # Si aucun genre n'est trouvé, renvoyer une liste par défaut
-        if not genres_list:
-            print("ATTENTION: Aucun genre n'a pu être récupéré depuis l'API, utilisation d'une liste par défaut")
-            return ["Action", "Aventure", "Animation", "Comédie", "Crime", 
-                    "Documentaire", "Drame", "Famille", "Fantaisie", "Histoire", 
-                    "Horreur", "Musique", "Mystère", "Romance", "Science-Fiction", 
-                    "Thriller", "Guerre", "Western"]
-        
-        return genres_list
-    except Exception as e:
-        print(f"ERREUR lors de la récupération des genres: {e}")
-        # En cas d'erreur, renvoyer une liste par défaut
-        return ["Action", "Aventure", "Animation", "Comédie", "Crime", 
-                "Documentaire", "Drame", "Famille", "Fantaisie", "Histoire", 
-                "Horreur", "Musique", "Mystère", "Romance", "Science-Fiction", 
-                "Thriller", "Guerre", "Western"]
+    movie_genres = get_genre_list("movie")
+    tv_genres = get_genre_list("tv")
+    
+    # Fusionner les deux listes de genres et éliminer les doublons
+    all_genres = set()
+    for genre_name in movie_genres.values():
+        all_genres.add(genre_name)
+    for genre_name in tv_genres.values():
+        all_genres.add(genre_name)
+    
+    return sorted(list(all_genres))
 
 def get_recommendations_online(user_preferences, max_results=10, content_type="all", streaming_service=None):
     """
@@ -289,7 +234,8 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
         min_votes = 100  # Au moins 100 votes pour éviter les films peu connus ou mal évalués
         
         # Chercher par genre préféré
-        for genre_id in preferred_genre_ids:            # Chercher des films populaires
+        for genre_id in preferred_genre_ids:
+            # Chercher des films populaires
             endpoint = f"{TMDB_BASE_URL}/discover/movie"
             params = {
                 "api_key": TMDB_API_KEY,
@@ -302,45 +248,26 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
             }
             
             try:
-                # Récupérer plusieurs pages si beaucoup de résultats sont demandés
-                pages_to_fetch = 1
-                if max_results > 20:
-                    pages_to_fetch = min(4, max_results // 10)  # Max 4 pages
-                    
-                for page in range(1, pages_to_fetch + 1):
-                    params["page"] = page
-                    response = requests.get(endpoint, params=params)
-                    if response.status_code == 200:
-                        results = response.json().get("results", [])
-                        for result in results:
-                            result["media_type"] = "movie"
-                        all_results.extend(results)
-                    else:
-                        break  # Arrêter si une erreur se produit
+                response = requests.get(endpoint, params=params)
+                if response.status_code == 200:
+                    results = response.json().get("results", [])
+                    for result in results:
+                        result["media_type"] = "movie"
+                    all_results.extend(results)
             except Exception as e:
                 print(f"Exception lors de la découverte de films populaires: {e}")
             
             # Chercher les films les mieux notés (pas juste les plus populaires)
             params["sort_by"] = "vote_average.desc"
             params["vote_count.gte"] = 500  # Plus de votes pour garantir des films vraiment bons
-            params["page"] = 1  # Réinitialiser la page
             
             try:
-                # Récupérer plusieurs pages si beaucoup de résultats sont demandés
-                pages_to_fetch = 1
-                if max_results > 20:
-                    pages_to_fetch = min(3, max_results // 15)  # Max 3 pages
-                    
-                for page in range(1, pages_to_fetch + 1):
-                    params["page"] = page
-                    response = requests.get(endpoint, params=params)
-                    if response.status_code == 200:
-                        results = response.json().get("results", [])
-                        for result in results:
-                            result["media_type"] = "movie"
-                        all_results.extend(results)
-                    else:
-                        break  # Arrêter si une erreur se produit
+                response = requests.get(endpoint, params=params)
+                if response.status_code == 200:
+                    results = response.json().get("results", [])
+                    for result in results:
+                        result["media_type"] = "movie"
+                    all_results.extend(results)
             except Exception as e:
                 print(f"Exception lors de la découverte de films bien notés: {e}")
       # Rechercher des séries (amélioré)
@@ -349,7 +276,8 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
         min_rating = max(user_preferences.get("rating_min", 7.0), 7.0)
         min_votes = 100
         
-        for genre_id in preferred_genre_ids:            # Chercher des séries populaires
+        for genre_id in preferred_genre_ids:
+            # Chercher des séries populaires
             endpoint = f"{TMDB_BASE_URL}/discover/tv"
             params = {
                 "api_key": TMDB_API_KEY,
@@ -362,47 +290,29 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
             }
             
             try:
-                # Récupérer plusieurs pages si beaucoup de résultats sont demandés
-                pages_to_fetch = 1
-                if max_results > 20:
-                    pages_to_fetch = min(4, max_results // 10)  # Max 4 pages
-                    
-                for page in range(1, pages_to_fetch + 1):
-                    params["page"] = page
-                    response = requests.get(endpoint, params=params)
-                    if response.status_code == 200:
-                        results = response.json().get("results", [])
-                        for result in results:
-                            result["media_type"] = "tv"
-                        all_results.extend(results)
-                    else:
-                        break  # Arrêter si une erreur se produit
+                response = requests.get(endpoint, params=params)
+                if response.status_code == 200:
+                    results = response.json().get("results", [])
+                    for result in results:
+                        result["media_type"] = "tv"
+                    all_results.extend(results)
             except Exception as e:
                 print(f"Exception lors de la découverte de séries populaires: {e}")
                 
-            # Chercher les séries les mieux notées            params["sort_by"] = "vote_average.desc"
+            # Chercher les séries les mieux notées
+            params["sort_by"] = "vote_average.desc"
             params["vote_count.gte"] = 200
-            params["page"] = 1  # Réinitialiser la page
             
             try:
-                # Récupérer plusieurs pages si beaucoup de résultats sont demandés
-                pages_to_fetch = 1
-                if max_results > 20:
-                    pages_to_fetch = min(3, max_results // 15)  # Max 3 pages
-                    
-                for page in range(1, pages_to_fetch + 1):
-                    params["page"] = page
-                    response = requests.get(endpoint, params=params)
-                    if response.status_code == 200:
-                        results = response.json().get("results", [])
-                        for result in results:
-                            result["media_type"] = "tv"
-                        all_results.extend(results)
-                    else:
-                        break  # Arrêter si une erreur se produit
+                response = requests.get(endpoint, params=params)
+                if response.status_code == 200:
+                    results = response.json().get("results", [])
+                    for result in results:
+                        result["media_type"] = "tv"
+                    all_results.extend(results)
             except Exception as e:
                 print(f"Exception lors de la découverte de séries bien notées: {e}")
-    # Récupérer plus de détails pour les résultats les plus pertinents
+      # Récupérer plus de détails pour les résultats les plus pertinents
     # et calculer un score de pertinence
     # Amélioration: Tri initial plus équilibré entre note, popularité et diversité
     # Pour éviter de toujours voir les mêmes films très populaires
@@ -415,7 +325,8 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
         if result_id not in seen_ids:
             seen_ids.add(result_id)
             unique_results.append(result)
-      # Diversifier les résultats en tenant compte de la note et de la popularité de manière plus équilibrée
+    
+    # Diversifier les résultats en tenant compte de la note et de la popularité de manière plus équilibrée
     top_results = sorted(
         unique_results, 
         key=lambda x: (
@@ -423,7 +334,7 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
             min(x.get("popularity", 0) / 200, 3)  # Limiter davantage l'impact de la popularité
         ), 
         reverse=True
-    )[:max(max_results*10, 500)]  # Augmenter considérablement le pool pour permettre jusqu'à 100 recommandations
+    )[:max_results*3]  # Augmenter le pool de résultats pour plus de diversité
     
     # Fonction pour traiter chaque résultat et récupérer plus de détails
     def process_result(result):
@@ -546,23 +457,18 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
                         streaming_services.append("apple")
                     elif "peacock" in provider_name:
                         streaming_services.append("peacock")
-                    elif "paramount" in provider_name:                        streaming_services.append("paramount")
-                        
-        # Si un service de streaming spécifique est demandé et que le contenu n'est pas disponible sur ce service
-        # Ne pas filtrer si l'utilisateur a demandé "tous" ou si le paramètre est None
-        if streaming_service and streaming_service.lower() not in ["tous", "all", "toutes", "every", "everything"] and streaming_service.lower() not in streaming_services:
-            return None
+                    elif "paramount" in provider_name:
+                        streaming_services.append("paramount")
         
-        # Si l'utilisateur a demandé de filtrer par ses services d'abonnement
+        # Si un service de streaming spécifique est demandé et que le contenu n'est pas disponible
+        # sur ce service, ne pas inclure dans les recommandations
+        if streaming_service and streaming_service.lower() not in streaming_services:
+            return None
+              # Si l'utilisateur a demandé de filtrer par ses services d'abonnement
         user_streaming_services = user_preferences.get("streaming_services", [])
         if user_preferences.get("filter_by_user_services", False) and user_streaming_services:
-            # Ne pas filtrer si l'utilisateur a spécifiquement demandé tous les services
-            if streaming_service and streaming_service.lower() in ["tous", "all", "toutes", "every", "everything"]:
-                # Dans ce cas on n'applique pas le filtre mais on ajoute quand même un bonus de score
-                matching_services = sum(1 for service in user_streaming_services if service in streaming_services)
-                score += matching_services * 1.0  # Bonus plus modéré
-            # Sinon filtrer normalement
-            elif not any(service in streaming_services for service in user_streaming_services):
+            # Vérifier si le contenu est disponible sur au moins un des services de l'utilisateur
+            if not any(service in streaming_services for service in user_streaming_services):
                 return None
             else:
                 # Bonus de score en fonction du nombre de services disponibles
@@ -598,9 +504,9 @@ def get_recommendations_online(user_preferences, max_results=10, content_type="a
                     recommendation["item"]["creator"] = ", ".join(creators)
         
         return recommendation
-      # Utiliser ThreadPoolExecutor pour paralléliser les requêtes
-    # Augmenter le nombre de workers pour les grandes demandes
-    with ThreadPoolExecutor(max_workers=min(10, max_results // 10 + 5)) as executor:
+    
+    # Utiliser ThreadPoolExecutor pour paralléliser les requêtes
+    with ThreadPoolExecutor(max_workers=5) as executor:
         results = list(executor.map(process_result, top_results))
       # Filtrer les résultats None et trier par score
     recommendations = [r for r in results if r]
@@ -627,44 +533,21 @@ def get_recommendations(user_id, n=5, content_type='all', streaming_service=None
     
     Args:
         user_id: ID de l'utilisateur
-        n: Nombre de recommandations à retourner (jusqu'à 100)
+        n: Nombre de recommandations à retourner
         content_type: 'movies', 'series', ou 'all'
         streaming_service: Service de streaming spécifique (optionnel)
         
     Returns:
         Liste des recommandations avec leurs scores et disponibilité en streaming
     """
-    # Limiter n à 100 maximum pour éviter de surcharger l'API
-    n = min(int(n), 100)
-    
-    # Recharger la liste des utilisateurs pour être sûr d'avoir les données les plus récentes
-    global users
-    users = reload_users()  # Utiliser reload_users qui est plus robuste
-      
     # Trouver l'utilisateur
     user = None
-    user_id = int(user_id)  # S'assurer que l'ID est un entier
-    
-    # Recherche dans les utilisateurs chargés
     for u in users:
-        if u.get('id') == user_id:
+        if u['id'] == user_id:
             user = u
-            print(f"Utilisateur {user_id} ({u.get('name')}) trouvé dans la liste en mémoire.")
             break
     
-    # Si non trouvé, essayer de le trouver dans les utilisateurs par défaut
     if not user:
-        print(f"Utilisateur {user_id} non trouvé en mémoire, vérification des utilisateurs par défaut...")
-        from data.movies_series_database import users as default_users
-        for u in default_users:
-            if u.get('id') == user_id:
-                user = u
-                print(f"Utilisateur {user_id} ({u.get('name')}) trouvé dans les utilisateurs par défaut.")
-                break
-    
-    # Si toujours non trouvé, c'est une erreur
-    if not user:
-        print(f"ERREUR: Utilisateur {user_id} introuvable. Assurez-vous que cet utilisateur existe.")
         return []
     
     user_preferences = user.get('preferences', {})
@@ -683,7 +566,16 @@ def get_recommendations(user_id, n=5, content_type='all', streaming_service=None
     user_streaming_services = user_preferences.get('streaming_services', [])
     
     if not streaming_service and user_streaming_services:
-        user_preferences['filter_by_user_services'] = True
+        print("\nVous êtes abonné(e) aux services suivants:", 
+              ", ".join(s.capitalize() for s in user_streaming_services))
+        filter_option = input("Voulez-vous voir uniquement les contenus disponibles sur vos abonnements? (o/n): ")
+        if filter_option.lower() in ['o', 'oui', 'y', 'yes']:
+            # On ne spécifie pas de service précis, le filtrage se fera au niveau des résultats
+            # pour inclure tous les services de l'utilisateur
+            print("Filtrage activé pour vos services d'abonnement.")
+            user_preferences['filter_by_user_services'] = True
+        else:
+            user_preferences['filter_by_user_services'] = False
     
     # Utiliser la recherche en ligne
     recommendations = get_recommendations_online(

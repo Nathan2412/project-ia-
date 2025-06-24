@@ -1,6 +1,6 @@
-# Système de Recommandation de Films et Séries
+# WhatToWatch - Système de Recommandation de Films et Séries
 
-Ce projet est une IA qui aide les utilisateurs à choisir des films ou des séries en fonction de leurs préférences et goûts personnels, en recherchant directement en ligne via l'API TMDb.
+WhatToWatch est une IA qui aide les utilisateurs à choisir des films ou des séries en fonction de leurs préférences et goûts personnels, en recherchant directement en ligne via l'API TMDb.
 
 ## Structure du Projet
 
