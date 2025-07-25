@@ -1,0 +1,91 @@
+[
+    {
+        "id": 1,
+        "name": "Alice",
+        "preferences": {
+            "genres_likes": [
+                "Science-Fiction",
+                "Thriller",
+                "Animation"
+            ],
+            "genres_dislikes": [
+                "Horreur",
+                "Guerre"
+            ],
+            "directors_likes": [
+                "Christopher Nolan",
+                "Quentin Tarantino"
+            ],
+            "keywords_likes": [
+                "rêve",
+                "voyage",
+                "animaux",
+                "space"
+            ],
+            "mood_preferences": [
+                "intense",
+                "réflexif",
+                "émouvant"
+            ],
+            "rating_min": 7.5,
+            "streaming_services": [
+                "netflix",
+                "disney"
+            ]
+        },
+        "history": []
+    },
+    {
+        "id": 2,
+        "name": "Bob",
+        "preferences": {
+            "genres_likes": [
+                "Comédie",
+                "Action"
+            ],
+            "genres_dislikes": [
+                "Drame",
+                "Documentaire"
+            ],
+            "keywords_likes": [
+                "humour",
+                "aventure",
+                "super-héros"
+            ],
+            "mood_preferences": [
+                "léger",
+                "drôle",
+                "divertissant"
+            ],
+            "rating_min": 7.0,
+            "streaming_services": [
+                "amazon",
+                "hbo"
+            ]
+        },
+        "history": []
+    },
+    {
+        "id": 3,
+        "name": "nathan",
+        "preferences": {
+            "genres_likes": [
+                "Action & Adventure",
+                "Animation",
+                "Science-Fiction & Fantastique"
+            ],
+            "genres_dislikes": [
+                "Kids",
+                "Romance"
+            ],
+            "directors_likes": [],
+            "keywords_likes": [],
+            "mood_preferences": [],
+            "rating_min": 8.5,
+            "streaming_services": [
+                "netflix"
+            ]
+        },
+        "history": []
+    }
+]
