@@ -1,15 +1,18 @@
+# .gitignore
 # Python
 __pycache__/
-*.pyc
-venv/
+*.py[cod]
+*.sqlite3
+instance/
 .env
-
-# Node/Vue
-node_modules/
-dist/
-
-# Logs
 *.log
 
-# System
-.DS_Store
+# Node.js / Vue
+node_modules/
+dist/
+.env.local
+*.log
+
+# VSCode
+.vscode/
+
