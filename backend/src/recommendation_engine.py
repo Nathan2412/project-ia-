@@ -1,7 +1,7 @@
 """
 Moteur de recommandation pour films et séries.
 Ce fichier contient les algorithmes pour recommander des films et séries en fonction des préférences des utilisateurs.
-La recherche est effectuée en ligne via l'API TMDb.
+La recherche est effectuée via plusieurs APIs (TMDb, Watchmode, etc.).
 """
 
 import sys
@@ -18,16 +18,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from data.movies_series_database import STREAMING_SERVICES
 from data.user_database import load_users, update_user
 
+# Importer le gestionnaire multi-API
+from src.multi_api_manager import api_manager
+
 # Charger la liste des utilisateurs
 users = load_users()
 
-# Importer la clé API depuis le fichier de configuration
-# La clé est définie par l'administrateur et utilisée pour toutes les requêtes
+# URLs et configurations héritées pour compatibilité
 try:
-    from config import TMDB_API_KEY
+    from config import TMDB_API_KEY, WATCHMODE_API_KEY
 except ImportError:
-    # Si le fichier n'existe pas, utiliser une valeur par défaut
     TMDB_API_KEY = "f584c416fc7b0c9c1591acabafc13a72"
+    WATCHMODE_API_KEY = ""
 
 TMDB_BASE_URL = "https://api.themoviedb.org/3"
 
@@ -39,29 +41,142 @@ TMDB_BASE_URL = "https://api.themoviedb.org/3"
 
 def check_api_key(force_ask=False):
     """
-    Vérifie si la clé API est valide.
+    Vérifie si les clés API sont valides.
     
     Args:
         force_ask: Ce paramètre est conservé pour compatibilité mais n'est plus utilisé
-                   car la clé API est maintenant gérée centralement.
+                   car les clés API sont maintenant gérées centralement.
     """
-    # La clé API est maintenant toujours définie par l'administrateur du système
-    # et ne peut pas être modifiée par les utilisateurs finaux
-    return True
+    # Tester toutes les APIs disponibles
+    status = api_manager.test_all_providers()
+    available_providers = [name for name, info in status.items() if info["available"]]
+    
+    if available_providers:
+        print(f"APIs disponibles: {', '.join(available_providers)}")
+        return True
+    else:
+        print("Aucune API disponible. Vérifiez vos clés API dans config.py")
+        return False
+
+def search_multi_api(query, content_type="all", max_results=20):
+    """
+    Recherche de contenu via plusieurs APIs.
+    
+    Args:
+        query: Terme de recherche
+        content_type: 'all', 'movies', 'series'
+        max_results: Nombre maximum de résultats
+    
+    Returns:
+        List: Résultats combinés de toutes les APIs
+    """
+    # Conversion des types de contenu
+    api_content_type = content_type
+    if content_type == "series":
+        api_content_type = "tv"
+    
+    # Recherche via toutes les APIs
+    results = api_manager.search_content(query, api_content_type, combine_results=True)
+    
+    if "error" in results:
+        print(f"Erreur lors de la recherche multi-API: {results['error']}")
+        return []
+    
+    # Afficher les fournisseurs utilisés
+    if results.get("providers_used"):
+        print(f"Recherche effectuée via: {', '.join(results['providers_used'])}")
+    
+    # Afficher les erreurs éventuelles
+    if results.get("errors"):
+        print(f"Erreurs rencontrées: {'; '.join(results['errors'])}")
+    
+    return results.get("results", [])[:max_results]
+
+def get_trending_multi_api(content_type="all", max_results=20):
+    """
+    Récupère le contenu tendance via plusieurs APIs.
+    
+    Args:
+        content_type: Type de contenu à récupérer
+        max_results: Nombre maximum de résultats
+    
+    Returns:
+        List: Contenu tendance combiné
+    """
+    # Conversion des types de contenu
+    api_content_type = content_type
+    if content_type == "series":
+        api_content_type = "tv"
+    
+    # Récupération via toutes les APIs
+    results = api_manager.get_trending(api_content_type, combine_results=True)
+    
+    if "error" in results:
+        print(f"Erreur lors de la récupération du contenu tendance: {results['error']}")
+        return []
+    
+    # Afficher les fournisseurs utilisés
+    if results.get("providers_used"):
+        print(f"Contenu tendance récupéré via: {', '.join(results['providers_used'])}")
+    
+    return results.get("results", [])[:max_results]
 
 def search_online(query, content_type="movie"):
     """
-    Recherche des films ou séries en ligne en utilisant l'API TMDb.
+    Recherche des films ou séries en ligne en utilisant plusieurs APIs.
     
     Args:
         query: La requête de recherche
-        content_type: "movie" ou "tv" (pour les séries)
+        content_type: "movie", "tv" ou "all"
         
     Returns:
-        Liste des résultats de recherche
+        Liste des résultats de recherche combinés
     """
-    # La clé API est gérée par l'administrateur et toujours disponible
+    # Utiliser le nouveau système multi-API
+    try:
+        results = search_multi_api(query, content_type, max_results=20)
         
+        # Convertir au format attendu par le reste du code
+        formatted_results = []
+        for item in results:
+            # Adapter le format pour compatibilité avec l'ancien code
+            formatted_item = {
+                "id": item.get("id"),
+                "title": item.get("title"),
+                "name": item.get("title"),  # Compatibilité avec les séries
+                "original_title": item.get("original_title"),
+                "original_name": item.get("original_title"),
+                "overview": item.get("overview", ""),
+                "poster_path": item.get("poster_path"),
+                "backdrop_path": item.get("backdrop_path"),
+                "vote_average": item.get("vote_average", 0),
+                "vote_count": item.get("vote_count", 0),
+                "popularity": item.get("popularity", 0),
+                "genre_ids": item.get("genre_ids", []),
+                "genres": item.get("genres", []),
+                "adult": item.get("adult", False),
+                "release_date": item.get("release_date"),
+                "first_air_date": item.get("release_date"),
+                "media_type": item.get("media_type", content_type),
+                "provider": item.get("provider", "multi"),
+                # Informations spécifiques aux différentes APIs
+                "tmdb_id": item.get("tmdb_id"),
+                "watchmode_id": item.get("watchmode_id"),
+                "imdb_id": item.get("imdb_id")
+            }
+            formatted_results.append(formatted_item)
+        
+        return formatted_results
+        
+    except Exception as e:
+        print(f"Erreur lors de la recherche multi-API: {e}")
+        # Fallback vers l'ancienne méthode TMDb uniquement
+        return search_online_fallback(query, content_type)
+
+def search_online_fallback(query, content_type="movie"):
+    """
+    Méthode de fallback utilisant uniquement TMDb.
+    """
     endpoint = f"{TMDB_BASE_URL}/search/{content_type}"
     params = {
         "api_key": TMDB_API_KEY,
@@ -72,7 +187,7 @@ def search_online(query, content_type="movie"):
     }
     
     try:
-        response = requests.get(endpoint, params=params)
+        response = requests.get(endpoint, params=params, timeout=10)
         if response.status_code == 200:
             results = response.json().get("results", [])
             return results
@@ -562,20 +677,15 @@ def get_recommendations(user_id, n=5, content_type='all', streaming_service=None
     online_content_type = content_type_map.get(content_type, 'all')
     
     # Si aucun service de streaming n'est spécifié mais que l'utilisateur a des abonnements,
-    # on peut demander s'il veut filtrer par ses services
+    # filtrer automatiquement par les services de l'utilisateur (mode API)
     user_streaming_services = user_preferences.get('streaming_services', [])
     
     if not streaming_service and user_streaming_services:
-        print("\nVous êtes abonné(e) aux services suivants:", 
-              ", ".join(s.capitalize() for s in user_streaming_services))
-        filter_option = input("Voulez-vous voir uniquement les contenus disponibles sur vos abonnements? (o/n): ")
-        if filter_option.lower() in ['o', 'oui', 'y', 'yes']:
-            # On ne spécifie pas de service précis, le filtrage se fera au niveau des résultats
-            # pour inclure tous les services de l'utilisateur
-            print("Filtrage activé pour vos services d'abonnement.")
-            user_preferences['filter_by_user_services'] = True
-        else:
-            user_preferences['filter_by_user_services'] = False
+        # En mode API, filtrer automatiquement par les services de l'utilisateur
+        # pour une meilleure expérience utilisateur
+        user_preferences['filter_by_user_services'] = True
+    else:
+        user_preferences['filter_by_user_services'] = False
     
     # Utiliser la recherche en ligne
     recommendations = get_recommendations_online(
