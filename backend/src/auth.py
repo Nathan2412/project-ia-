@@ -210,31 +210,21 @@ def authenticate_user(email: str, password: str) -> dict:
     Returns:
         dict: Informations utilisateur si authentifié, None sinon
     """
-    from data.user_database import find_user_by_email, find_user_by_name
+    from models import User
     
     # Chercher par email d'abord
-    user = find_user_by_email(email)
+    user = User.find_by_email(email)
     
     # Si pas trouvé par email, essayer par nom (compatibilité avec l'ancien système)
     if not user:
-        user = find_user_by_name(email)
+        user = User.find_by_name(email)
     
     if not user:
         return None
     
-    # Vérifier les informations d'authentification
-    if 'auth' in user:
-        stored_hash = user['auth']['password_hash']
-        salt = user['auth']['salt']
-        
-        if verify_password(password, stored_hash, salt):
-            # Retourner les infos utilisateur sans le mot de passe
-            return {
-                'id': user['id'],
-                'name': user['name'],
-                'email': user.get('email', ''),
-                'preferences': user['preferences'],
-                'history': user.get('history', [])
-            }
+    # Vérifier le mot de passe
+    if verify_password(password, user.password_hash, user.password_salt):
+        # Retourner les infos utilisateur
+        return user.to_dict()
     
     return None

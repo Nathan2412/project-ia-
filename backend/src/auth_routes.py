@@ -4,9 +4,9 @@ Gère les endpoints de connexion, déconnexion et inscription.
 """
 
 from flask import Blueprint, request, jsonify
-from src.auth import authenticate_user, create_user_with_password, generate_jwt_token
-from data.user_database import add_user, load_users
-from src.email_service import email_service
+from src.auth import authenticate_user, create_user_with_password, generate_jwt_token, hash_password, verify_password
+from models import db, User
+from src.middleware import get_current_user, require_auth_for_user
 
 # Créer un blueprint pour les routes d'authentification
 auth_bp = Blueprint('auth', __name__)
@@ -109,6 +109,11 @@ def register():
         preferences = data.get('preferences', {})
         
         try:
+            # Vérifier si l'email existe déjà
+            existing_user = User.find_by_email(email)
+            if existing_user:
+                return jsonify({'error': 'Un compte avec cet email existe déjà'}), 400
+            
             # Créer l'utilisateur avec email et mot de passe
             new_user = create_user_with_password(
                 name=name,
@@ -123,29 +128,39 @@ def register():
                 streaming_services=preferences.get('streaming_services', [])
             )
             
+            # Créer un objet User SQLAlchemy
+            user = User(
+                name=new_user['name'],
+                email=new_user['email'],
+                password_hash=new_user['password_hash'],
+                password_salt=new_user['password_salt'],
+                preferences=new_user['preferences']
+            )
+            
             # Ajouter l'utilisateur à la base de données
-            created_user = add_user(new_user)
+            db.session.add(user)
+            db.session.commit()
             
             # TODO: Ajouter le service d'email plus tard
             # try:
-            #     email_sent = email_service.send_welcome_email(created_user['email'], created_user['name'])
+            #     email_sent = email_service.send_welcome_email(user.email, user.name)
             #     if email_sent:
-            #         print(f"✅ Email de bienvenue envoyé à {created_user['email']}")
+            #         print(f"✅ Email de bienvenue envoyé à {user.email}")
             #     else:
-            #         print(f"⚠️  Email de bienvenue non envoyé à {created_user['email']}")
+            #         print(f"⚠️  Email de bienvenue non envoyé à {user.email}")
             # except Exception as email_error:
             #     print(f"❌ Erreur lors de l'envoi de l'email de bienvenue: {str(email_error)}")
             #     # Ne pas faire échouer l'inscription si l'email ne peut pas être envoyé
             
             # Générer un token JWT
-            token = generate_jwt_token(created_user['id'], created_user['name'])
+            token = generate_jwt_token(user.id, user.name)
             
             # Retourner la réponse sans les informations d'authentification
             user_response = {
-                'id': created_user['id'],
-                'name': created_user['name'],
-                'email': created_user['email'],
-                'preferences': created_user['preferences']
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'preferences': user.preferences
             }
             
             return jsonify({
@@ -181,19 +196,18 @@ def verify_token():
     if not current_user:
         return jsonify({'error': 'Token invalide'}), 401
     
-    # Récupérer les informations complètes de l'utilisateur
-    users = load_users()
-    for user in users:
-        if user['id'] == current_user['user_id']:
-            user_info = {
-                'id': user['id'],
-                'name': user['name'],
-                'preferences': user['preferences']
-            }
-            return jsonify({
-                'message': 'Token valide',
-                'user': user_info
-            }), 200
+    # Récupérer les informations complètes de l'utilisateur depuis la base de données
+    user = User.query.get(current_user['user_id'])
+    if user:
+        user_info = {
+            'id': user.id,
+            'name': user.name,
+            'preferences': user.preferences or {}
+        }
+        return jsonify({
+            'message': 'Token valide',
+            'user': user_info
+        }), 200
     
     return jsonify({'error': 'Utilisateur non trouvé'}), 404
 
@@ -231,35 +245,28 @@ def change_password():
         if len(new_password) < 6:
             return jsonify({'error': 'Le nouveau mot de passe doit contenir au moins 6 caractères'}), 400
         
-        # Récupérer l'utilisateur complet
-        users = load_users()
-        user_to_update = None
-        for user in users:
-            if user['id'] == current_user['user_id']:
-                user_to_update = user
-                break
-        
-        if not user_to_update or 'auth' not in user_to_update:
+        # Récupérer l'utilisateur depuis la base de données
+        user = User.query.get(current_user['user_id'])
+        if not user:
             return jsonify({'error': 'Utilisateur non trouvé'}), 404
         
         # Vérifier l'ancien mot de passe
-        stored_hash = user_to_update['auth']['password_hash']
-        salt = user_to_update['auth']['salt']
-        
-        if not verify_password(current_password, stored_hash, salt):
+        if not verify_password(current_password, user.password_hash, user.password_salt):
             return jsonify({'error': 'Mot de passe actuel incorrect'}), 401
         
         # Hash du nouveau mot de passe
         new_password_hash, new_salt = hash_password(new_password)
         
         # Mettre à jour le mot de passe
-        user_to_update['auth']['password_hash'] = new_password_hash
-        user_to_update['auth']['salt'] = new_salt
+        user.password_hash = new_password_hash
+        user.password_salt = new_salt
         
         # Sauvegarder les changements
-        if update_user(user_to_update):
+        try:
+            db.session.commit()
             return jsonify({'message': 'Mot de passe modifié avec succès'}), 200
-        else:
+        except Exception as e:
+            db.session.rollback()
             return jsonify({'error': 'Erreur lors de la mise à jour'}), 500
         
     except Exception as e:

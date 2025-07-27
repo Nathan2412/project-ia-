@@ -12,13 +12,19 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.recommendation_engine_v2 import modular_engine
-from data.user_database import load_users, save_users, add_user, update_user
+from models import db, User
 from src.auth_routes import auth_bp
 from src.middleware import init_auth_middleware, check_user_access, get_current_user, AuthError, handle_auth_error
-from src.email_service import email_service
 
 app = Flask(__name__)
 CORS(app)  # Activer CORS pour permettre les requêtes depuis le frontend
+
+# Configuration SQLAlchemy pour MariaDB
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:motdepasse123@127.0.0.1:3306/whattowatch'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialisation de la base
+db.init_app(app)
 
 # Initialiser le middleware d'authentification
 init_auth_middleware(app)
@@ -29,8 +35,7 @@ app.register_blueprint(auth_bp)
 # Gestionnaire d'erreur pour l'authentification
 app.register_error_handler(AuthError, handle_auth_error)
 
-# Charger les utilisateurs au démarrage
-users = load_users()
+# Note: Les utilisateurs sont maintenant gérés par SQLAlchemy via la classe User
 
 @app.route('/api/users', methods=['GET'])
 def get_users():
@@ -47,21 +52,24 @@ def get_user(user_id):
         if not check_user_access(user_id):
             return jsonify({'error': 'Accès non autorisé à ce compte'}), 403
         
-        for user in users:
-            if user['id'] == user_id:
-                # Ne pas exposer l'historique et les informations d'authentification
-                sanitized_user = {
-                    'id': user['id'],
-                    'name': user['name'],
-                    'preferences': {
-                        'genres_likes': user['preferences'].get('genres_likes', []),
-                        'genres_dislikes': user['preferences'].get('genres_dislikes', []),
-                        'keywords_likes': user['preferences'].get('keywords_likes', []),
-                        'rating_min': user['preferences'].get('rating_min', 7.0),
-                        'streaming_services': user['preferences'].get('streaming_services', [])
-                    }
-                }
-                return jsonify(sanitized_user)
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+        
+        # Ne pas exposer l'historique et les informations d'authentification
+        sanitized_user = {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'preferences': {
+                'genres_likes': user.preferences.get('genres_likes', []) if user.preferences else [],
+                'genres_dislikes': user.preferences.get('genres_dislikes', []) if user.preferences else [],
+                'keywords_likes': user.preferences.get('keywords_likes', []) if user.preferences else [],
+                'rating_min': user.preferences.get('rating_min', 7.0) if user.preferences else 7.0,
+                'streaming_services': user.preferences.get('streaming_services', []) if user.preferences else []
+            }
+        }
+        return jsonify(sanitized_user)
         
         return jsonify({'error': 'Utilisateur non trouvé'}), 404
         
@@ -83,33 +91,45 @@ def update_user_preferences(user_id):
         
         data = request.json
         
-        for user in users:
-            if user['id'] == user_id:
-                # Mettre à jour les préférences
-                if 'genres_likes' in data:
-                    user['preferences']['genres_likes'] = data['genres_likes']
-                if 'genres_dislikes' in data:
-                    user['preferences']['genres_dislikes'] = data['genres_dislikes']
-                if 'directors_likes' in data:
-                    user['preferences']['directors_likes'] = data['directors_likes']
-                if 'keywords_likes' in data:
-                    user['preferences']['keywords_likes'] = data['keywords_likes']
-                if 'rating_min' in data:
-                    user['preferences']['rating_min'] = data['rating_min']
-                if 'streaming_services' in data:
-                    user['preferences']['streaming_services'] = data['streaming_services']
-                
-                # Sauvegarder les modifications
-                if update_user(user):
-                    # Retourner l'utilisateur sans les informations d'authentification
-                    sanitized_user = {
-                        'id': user['id'],
-                        'name': user['name'],
-                        'preferences': user['preferences']
-                    }
-                    return jsonify(sanitized_user)
-                else:
-                    return jsonify({'error': 'Erreur lors de la mise à jour'}), 500
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+        
+        # Initialiser les préférences si elles n'existent pas
+        if user.preferences is None:
+            user.preferences = {}
+        
+        # Mettre à jour les préférences
+        if 'genres_likes' in data:
+            user.preferences['genres_likes'] = data['genres_likes']
+        if 'genres_dislikes' in data:
+            user.preferences['genres_dislikes'] = data['genres_dislikes']
+        if 'directors_likes' in data:
+            user.preferences['directors_likes'] = data['directors_likes']
+        if 'keywords_likes' in data:
+            user.preferences['keywords_likes'] = data['keywords_likes']
+        if 'rating_min' in data:
+            user.preferences['rating_min'] = data['rating_min']
+        if 'streaming_services' in data:
+            user.preferences['streaming_services'] = data['streaming_services']
+        
+        # Marquer les préférences comme modifiées pour SQLAlchemy
+        user.preferences = user.preferences.copy()
+        
+        # Sauvegarder les modifications
+        try:
+            db.session.commit()
+            # Retourner l'utilisateur sans les informations d'authentification
+            sanitized_user = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'preferences': user.preferences
+            }
+            return jsonify(sanitized_user)
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Erreur lors de la sauvegarde: {str(e)}'}), 500
         
         return jsonify({'error': 'Utilisateur non trouvé'}), 404
         
@@ -315,6 +335,15 @@ def clear_cache():
 if __name__ == '__main__':
     # Configuration pour serveur de production
     import os
+    
+    # Créer les tables de base de données au démarrage
+    with app.app_context():
+        try:
+            db.create_all()
+            print("✅ Tables de base de données créées/vérifiées")
+        except Exception as e:
+            print(f"❌ Erreur lors de la création des tables: {e}")
+    
     port = int(os.environ.get('PORT', 8000))
     debug = os.environ.get('FLASK_ENV', 'production') == 'development'
     app.run(debug=debug, host='0.0.0.0', port=port)
