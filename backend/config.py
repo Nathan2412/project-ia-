@@ -8,12 +8,12 @@ Ce fichier stocke les informations de configuration comme les clés API (adminis
 # Ne partagez pas cette clé avec les utilisateurs finaux
 TMDB_API_KEY = "f584c416fc7b0c9c1591acabafc13a72"
 
-# Clé API pour Watchmode via RapidAPI
-# Obtenez votre clé sur https://rapidapi.com/gox-ai-gox-ai-default/api/watchmode
-RAPIDAPI_KEY = "944e235a25msh60355e97da088e7p1eae4ajsn2bf9eb4c81bb"
+# Clé API pour Watchmode directe
+# Obtenez votre clé sur https://api.watchmode.com/
+WATCHMODE_API_KEY = "TKWcnrMlv79TRBrYvnkBNO44m8h7NOLK7xSUONTj"
 
-# Ancienne clé Watchmode (non utilisée avec RapidAPI)
-WATCHMODE_API_KEY = ""  # Remplacée par RAPIDAPI_KEY
+# Clé API pour Watchmode via RapidAPI (non utilisée)
+RAPIDAPI_KEY = ""
 
 # Configuration des fournisseurs d'API
 API_PROVIDERS = {
@@ -25,11 +25,11 @@ API_PROVIDERS = {
         "base_url": "https://api.themoviedb.org/3"
     },
     "watchmode": {
-        "enabled": bool(RAPIDAPI_KEY),  # Activé si clé RapidAPI disponible  
+        "enabled": bool(WATCHMODE_API_KEY),  # Activé si clé Watchmode directe disponible  
         "priority": 2,
         "timeout": 10,
-        "api_key": RAPIDAPI_KEY,
-        "base_url": "https://watchmode.p.rapidapi.com",
-        "type": "rapidapi"
+        "api_key": WATCHMODE_API_KEY,
+        "base_url": "https://api.watchmode.com/v1",
+        "type": "direct"
     }
 }

@@ -24,9 +24,10 @@ from src.recommendation_utils import (
 
 # Import de la configuration
 try:
-    from config import TMDB_API_KEY, RAPIDAPI_KEY, API_PROVIDERS
+    from config import TMDB_API_KEY, WATCHMODE_API_KEY, RAPIDAPI_KEY, API_PROVIDERS
 except ImportError:
     TMDB_API_KEY = "f584c416fc7b0c9c1591acabafc13a72"
+    WATCHMODE_API_KEY = ""
     RAPIDAPI_KEY = ""
     API_PROVIDERS = {}
 
@@ -35,7 +36,7 @@ class ModularRecommendationEngine:
     
     def __init__(self):
         # Initialiser les composants
-        self.api_manager = MultiAPIManager(TMDB_API_KEY, RAPIDAPI_KEY)
+        self.api_manager = MultiAPIManager(TMDB_API_KEY, WATCHMODE_API_KEY, RAPIDAPI_KEY)
         self.scorer = RecommendationScorer()
         self.recommendation_engine = RecommendationEngine(self.api_manager, self.scorer)
         self.cache_manager = CacheManager(cache_duration_minutes=30)

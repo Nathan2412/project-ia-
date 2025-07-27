@@ -15,7 +15,7 @@ from .watchmode_provider import WatchmodeProvider
 class MultiAPIManager:
     """Gestionnaire centralisé pour tous les fournisseurs d'API"""
     
-    def __init__(self, tmdb_key: str, rapidapi_key: str = ""):
+    def __init__(self, tmdb_key: str, watchmode_key: str = "", rapidapi_key: str = ""):
         self.providers = {}
         self.active_providers = []
         
@@ -23,8 +23,11 @@ class MultiAPIManager:
         if tmdb_key:
             self.providers["TMDb"] = TMDbProvider(tmdb_key)
         
-        if rapidapi_key:
-            self.providers["Watchmode"] = WatchmodeProvider(rapidapi_key)
+        # Préférer la clé Watchmode directe si disponible
+        if watchmode_key:
+            self.providers["Watchmode"] = WatchmodeProvider(watchmode_key, use_rapidapi=False)
+        elif rapidapi_key:
+            self.providers["Watchmode"] = WatchmodeProvider(rapidapi_key, use_rapidapi=True)
         
         # Tester les connexions
         self._test_providers()

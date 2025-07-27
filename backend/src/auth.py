@@ -141,70 +141,100 @@ def require_own_account(f):
     
     return decorated_function
 
-def create_user_with_password(name: str, password: str, **preferences) -> dict:
+def create_user_with_password(name: str, email: str, password: str, **preferences) -> dict:
     """
-    Crée un utilisateur avec mot de passe hashé.
+    Crée un utilisateur avec email et mot de passe hashé.
     
     Args:
         name: Nom d'utilisateur
+        email: Adresse email (obligatoire)
         password: Mot de passe en clair
         **preferences: Préférences utilisateur
     
     Returns:
         dict: Utilisateur créé (sans le mot de passe)
     """
-    from data.user_database import load_users, save_users
-    from src.recommendation_engine import create_user_profile
+    from data.user_database import find_user_by_email, find_user_by_name
     
-    # Vérifier si l'utilisateur existe déjà
-    users = load_users()
-    for user in users:
-        if user['name'].lower() == name.lower():
-            raise ValueError("Un utilisateur avec ce nom existe déjà")
+    # Valider l'email
+    if not email or '@' not in email:
+        raise ValueError("Adresse email invalide")
+    
+    # Valider le mot de passe
+    if not password or len(password) < 6:
+        raise ValueError("Le mot de passe doit contenir au moins 6 caractères")
+    
+    # Vérifier si l'email existe déjà
+    if find_user_by_email(email):
+        raise ValueError("Un utilisateur avec cet email existe déjà")
+    
+    # Vérifier si le nom existe déjà
+    if find_user_by_name(name):
+        raise ValueError("Un utilisateur avec ce nom existe déjà")
     
     # Hash du mot de passe
     password_hash, salt = hash_password(password)
     
-    # Créer le profil utilisateur
-    new_user = create_user_profile(name=name, **preferences)
-    
-    # Ajouter les informations d'authentification
-    new_user['auth'] = {
-        'password_hash': password_hash,
-        'salt': salt,
-        'created_at': datetime.utcnow().isoformat()
+    # Créer l'utilisateur
+    new_user = {
+        "name": name,
+        "email": email,
+        "preferences": {
+            "genres_likes": preferences.get('genres_likes', []),
+            "genres_dislikes": preferences.get('genres_dislikes', []),
+            "directors_likes": preferences.get('directors_likes', []),
+            "keywords_likes": preferences.get('keywords_likes', []),
+            "mood_preferences": preferences.get('mood_preferences', []),
+            "rating_min": preferences.get('rating_min', 7.0),
+            "streaming_services": preferences.get('streaming_services', [])
+        },
+        "history": [],
+        "auth": {
+            "password_hash": password_hash,
+            "salt": salt,
+            "created_at": datetime.utcnow().isoformat(),
+            "migrated": False
+        }
     }
     
     return new_user
 
-def authenticate_user(name: str, password: str) -> dict:
+def authenticate_user(email: str, password: str) -> dict:
     """
-    Authentifie un utilisateur avec son nom et mot de passe.
+    Authentifie un utilisateur avec son email et mot de passe.
     
     Args:
-        name: Nom d'utilisateur
+        email: Adresse email
         password: Mot de passe en clair
     
     Returns:
         dict: Informations utilisateur si authentifié, None sinon
     """
-    from data.user_database import load_users
+    from data.user_database import find_user_by_email, find_user_by_name
     
-    users = load_users()
-    for user in users:
-        if user['name'].lower() == name.lower():
-            # Vérifier le mot de passe
-            if 'auth' in user:
-                stored_hash = user['auth']['password_hash']
-                salt = user['auth']['salt']
-                
-                if verify_password(password, stored_hash, salt):
-                    # Retourner les infos utilisateur sans le mot de passe
-                    return {
-                        'id': user['id'],
-                        'name': user['name'],
-                        'preferences': user['preferences']
-                    }
-            break
+    # Chercher par email d'abord
+    user = find_user_by_email(email)
+    
+    # Si pas trouvé par email, essayer par nom (compatibilité avec l'ancien système)
+    if not user:
+        user = find_user_by_name(email)
+    
+    if not user:
+        return None
+    
+    # Vérifier les informations d'authentification
+    if 'auth' in user:
+        stored_hash = user['auth']['password_hash']
+        salt = user['auth']['salt']
+        
+        if verify_password(password, stored_hash, salt):
+            # Retourner les infos utilisateur sans le mot de passe
+            return {
+                'id': user['id'],
+                'name': user['name'],
+                'email': user.get('email', ''),
+                'preferences': user['preferences'],
+                'history': user.get('history', [])
+            }
     
     return None

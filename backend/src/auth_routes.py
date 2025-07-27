@@ -6,6 +6,7 @@ Gère les endpoints de connexion, déconnexion et inscription.
 from flask import Blueprint, request, jsonify
 from src.auth import authenticate_user, create_user_with_password, generate_jwt_token
 from data.user_database import add_user, load_users
+from src.email_service import email_service
 
 # Créer un blueprint pour les routes d'authentification
 auth_bp = Blueprint('auth', __name__)
@@ -17,7 +18,7 @@ def login():
     
     Body JSON attendu:
     {
-        "username": "nom_utilisateur",
+        "email": "user@example.com",
         "password": "mot_de_passe"
     }
     
@@ -30,17 +31,17 @@ def login():
         if not data:
             return jsonify({'error': 'Données JSON requises'}), 400
         
-        username = data.get('username')
-        password = data.get('password')
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
         
-        if not username or not password:
-            return jsonify({'error': 'Nom d\'utilisateur et mot de passe requis'}), 400
+        if not email or not password:
+            return jsonify({'error': 'Email et mot de passe requis'}), 400
         
         # Authentifier l'utilisateur
-        user = authenticate_user(username, password)
+        user = authenticate_user(email, password)
         
         if user is None:
-            return jsonify({'error': 'Nom d\'utilisateur ou mot de passe incorrect'}), 401
+            return jsonify({'error': 'Email ou mot de passe incorrect'}), 401
         
         # Générer un token JWT
         token = generate_jwt_token(user['id'], user['name'])
@@ -51,6 +52,7 @@ def login():
             'user': {
                 'id': user['id'],
                 'name': user['name'],
+                'email': user.get('email', ''),
                 'preferences': user['preferences']
             }
         }), 200
@@ -65,7 +67,8 @@ def register():
     
     Body JSON attendu:
     {
-        "username": "nom_utilisateur",
+        "name": "nom_utilisateur",
+        "email": "user@example.com",
         "password": "mot_de_passe",
         "preferences": {
             "genres_likes": [...],
@@ -83,27 +86,33 @@ def register():
         if not data:
             return jsonify({'error': 'Données JSON requises'}), 400
         
-        username = data.get('username')
-        password = data.get('password')
+        name = data.get('name', '').strip()
+        email = data.get('email', '').strip()
+        password = data.get('password', '')
         
-        if not username or not password:
-            return jsonify({'error': 'Nom d\'utilisateur et mot de passe requis'}), 400
+        if not name or not email or not password:
+            return jsonify({'error': 'Nom, email et mot de passe requis'}), 400
+        
+        # Validation de l'email
+        if '@' not in email:
+            return jsonify({'error': 'Adresse email invalide'}), 400
         
         # Validation du mot de passe
         if len(password) < 6:
             return jsonify({'error': 'Le mot de passe doit contenir au moins 6 caractères'}), 400
         
         # Validation du nom d'utilisateur
-        if len(username) < 3:
+        if len(name) < 3:
             return jsonify({'error': 'Le nom d\'utilisateur doit contenir au moins 3 caractères'}), 400
         
         # Récupérer les préférences (optionnelles)
         preferences = data.get('preferences', {})
         
         try:
-            # Créer l'utilisateur avec mot de passe
+            # Créer l'utilisateur avec email et mot de passe
             new_user = create_user_with_password(
-                name=username,
+                name=name,
+                email=email,
                 password=password,
                 genres_likes=preferences.get('genres_likes', []),
                 genres_dislikes=preferences.get('genres_dislikes', []),
@@ -117,6 +126,17 @@ def register():
             # Ajouter l'utilisateur à la base de données
             created_user = add_user(new_user)
             
+            # TODO: Ajouter le service d'email plus tard
+            # try:
+            #     email_sent = email_service.send_welcome_email(created_user['email'], created_user['name'])
+            #     if email_sent:
+            #         print(f"✅ Email de bienvenue envoyé à {created_user['email']}")
+            #     else:
+            #         print(f"⚠️  Email de bienvenue non envoyé à {created_user['email']}")
+            # except Exception as email_error:
+            #     print(f"❌ Erreur lors de l'envoi de l'email de bienvenue: {str(email_error)}")
+            #     # Ne pas faire échouer l'inscription si l'email ne peut pas être envoyé
+            
             # Générer un token JWT
             token = generate_jwt_token(created_user['id'], created_user['name'])
             
@@ -124,6 +144,7 @@ def register():
             user_response = {
                 'id': created_user['id'],
                 'name': created_user['name'],
+                'email': created_user['email'],
                 'preferences': created_user['preferences']
             }
             

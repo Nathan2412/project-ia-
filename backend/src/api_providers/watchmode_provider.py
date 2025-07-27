@@ -7,25 +7,41 @@ import requests
 from typing import Dict, List, Optional, Any
 
 class WatchmodeProvider:
-    """Fournisseur pour l'API Watchmode via RapidAPI"""
+    """Fournisseur pour l'API Watchmode directe"""
     
-    def __init__(self, rapidapi_key: str):
-        self.rapidapi_key = rapidapi_key
-        self.base_url = "https://watchmode.p.rapidapi.com"
+    def __init__(self, api_key: str, use_rapidapi: bool = False):
+        self.api_key = api_key
         self.name = "Watchmode"
-        self.headers = {
-            "X-RapidAPI-Key": rapidapi_key,
-            "X-RapidAPI-Host": "watchmode.p.rapidapi.com"
-        }
+        
+        if use_rapidapi:
+            # Configuration RapidAPI
+            self.base_url = "https://watchmode.p.rapidapi.com"
+            self.headers = {
+                "X-RapidAPI-Key": api_key,
+                "X-RapidAPI-Host": "watchmode.p.rapidapi.com"
+            }
+        else:
+            # Configuration API directe
+            self.base_url = "https://api.watchmode.com/v1"
+            self.headers = {}
         
     def test_connection(self) -> bool:
         """Teste la connexion à l'API Watchmode"""
         try:
-            response = requests.get(
-                f"{self.base_url}/regions/",
-                headers=self.headers,
-                timeout=5
-            )
+            if "rapidapi" in self.base_url:
+                # Test RapidAPI
+                response = requests.get(
+                    f"{self.base_url}/regions/",
+                    headers=self.headers,
+                    timeout=5
+                )
+            else:
+                # Test API directe
+                response = requests.get(
+                    f"{self.base_url}/regions/?apikey={self.api_key}",
+                    headers=self.headers,
+                    timeout=5
+                )
             return response.status_code == 200
         except Exception as e:
             print(f"Erreur de connexion Watchmode: {e}")

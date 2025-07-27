@@ -8,12 +8,13 @@
         <h2>Connexion</h2>
         <form @submit.prevent="login">
           <div class="form-group">
-            <label for="username">Nom d'utilisateur:</label>
+            <label for="email">Email:</label>
             <input
-              type="text"
-              id="username"
-              v-model="loginForm.username"
+              type="email"
+              id="email"
+              v-model="loginForm.email"
               required
+              placeholder="votre@email.com"
             />
           </div>
           <div class="form-group">
@@ -23,6 +24,7 @@
               id="password"
               v-model="loginForm.password"
               required
+              minlength="6"
             />
           </div>
           <button type="submit" :disabled="loading">
@@ -33,15 +35,6 @@
           Pas de compte ? 
           <a href="#" @click="showRegister = true">S'inscrire</a>
         </p>
-        
-        <!-- Informations pour les utilisateurs existants -->
-        <div class="existing-users-info">
-          <h3>Utilisateurs existants :</h3>
-          <p><strong>Alice</strong> - mot de passe : password123</p>
-          <p><strong>Bob</strong> - mot de passe : password123</p>
-          <p><strong>nathan</strong> - mot de passe : password123</p>
-          <p><em>Changez votre mot de passe après la première connexion !</em></p>
-        </div>
       </div>
 
       <!-- Formulaire d'inscription -->
@@ -56,6 +49,17 @@
               v-model="registerForm.username"
               required
               minlength="3"
+              placeholder="Votre nom complet"
+            />
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email:</label>
+            <input
+              type="email"
+              id="reg-email"
+              v-model="registerForm.email"
+              required
+              placeholder="votre@email.com"
             />
           </div>
           <div class="form-group">
@@ -66,20 +70,63 @@
               v-model="registerForm.password"
               required
               minlength="6"
+              placeholder="Au moins 6 caractères"
             />
           </div>
           
           <!-- Préférences -->
           <div class="preferences">
             <h3>Préférences (optionnel)</h3>
+            
+            <!-- Genres préférés -->
             <div class="form-group">
-              <label>Genres préférés:</label>
-              <select multiple v-model="registerForm.preferences.genres_likes">
-                <option v-for="genre in availableGenres" :key="genre" :value="genre">
+              <label>Genres que vous aimez:</label>
+              <div class="genre-buttons">
+                <button 
+                  v-for="genre in availableGenres" 
+                  :key="genre" 
+                  type="button"
+                  @click="toggleGenre(genre, 'likes')"
+                  :class="['genre-btn', { 'selected': registerForm.preferences.genres_likes.includes(genre) }]"
+                >
                   {{ genre }}
-                </option>
-              </select>
+                </button>
+              </div>
             </div>
+            
+            <!-- Genres détestés -->
+            <div class="form-group">
+              <label>Genres que vous n'aimez pas:</label>
+              <div class="genre-buttons">
+                <button 
+                  v-for="genre in availableGenres" 
+                  :key="genre" 
+                  type="button"
+                  @click="toggleGenre(genre, 'dislikes')"
+                  :class="['genre-btn', 'dislike', { 'selected': registerForm.preferences.genres_dislikes.includes(genre) }]"
+                >
+                  {{ genre }}
+                </button>
+              </div>
+            </div>
+            
+            <!-- Services de streaming -->
+            <div class="form-group">
+              <label>Services de streaming auxquels vous êtes abonné(e):</label>
+              <div class="streaming-buttons">
+                <button 
+                  v-for="service in streamingServices" 
+                  :key="service" 
+                  type="button"
+                  @click="toggleStreamingService(service)"
+                  :class="['streaming-btn', { 'selected': registerForm.preferences.streaming_services.includes(service) }]"
+                >
+                  {{ service }}
+                </button>
+              </div>
+            </div>
+            
+            <!-- Note minimum -->
             <div class="form-group">
               <label>Note minimum:</label>
               <input
@@ -143,6 +190,12 @@
 
       <!-- Préférences utilisateur -->
       <div class="user-preferences">
+        <h3>Vos informations</h3>
+        <div class="user-info">
+          <p><strong>Email:</strong> {{ currentUser.email }}</p>
+          <p><strong>Nom:</strong> {{ currentUser.name }}</p>
+        </div>
+        
         <h3>Vos préférences</h3>
         <div class="preferences-display">
           <p><strong>Genres préférés:</strong> {{ currentUser.preferences.genres_likes.join(', ') || 'Aucun' }}</p>
@@ -196,12 +249,13 @@ export default {
       success: '',
       
       loginForm: {
-        username: '',
+        email: '',
         password: ''
       },
       
       registerForm: {
         username: '',
+        email: '',
         password: '',
         preferences: {
           genres_likes: [],
@@ -216,7 +270,11 @@ export default {
         new_password: ''
       },
       
-      availableGenres: [],
+      availableGenres: ["Action", "Aventure", "Animation", "Comédie", "Crime", 
+                       "Documentaire", "Drame", "Famille", "Fantaisie", "Histoire", 
+                       "Horreur", "Musique", "Mystère", "Romance", "Science-Fiction", 
+                       "Thriller", "Guerre", "Western"],
+      streamingServices: ['Netflix', 'Amazon Prime', 'Disney+', 'HBO Max', 'Hulu', 'Apple TV+', 'Peacock', 'Paramount+'],
       recommendations: []
     }
   },
@@ -278,7 +336,7 @@ export default {
           this.success = 'Connexion réussie !';
           
           // Réinitialiser le formulaire
-          this.loginForm = { username: '', password: '' };
+          this.loginForm = { email: '', password: '' };
         } else {
           this.error = data.error;
         }
@@ -295,12 +353,20 @@ export default {
       this.error = '';
       
       try {
+        // Préparer les données pour l'API
+        const registrationData = {
+          name: this.registerForm.username,
+          email: this.registerForm.email,
+          password: this.registerForm.password,
+          preferences: this.registerForm.preferences
+        };
+        
         const response = await fetch('/api/register', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(this.registerForm)
+          body: JSON.stringify(registrationData)
         });
         
         const data = await response.json();
@@ -315,6 +381,7 @@ export default {
           // Réinitialiser le formulaire
           this.registerForm = {
             username: '',
+            email: '',
             password: '',
             preferences: {
               genres_likes: [],
@@ -414,6 +481,47 @@ export default {
       this.currentUser = {};
       this.recommendations = [];
       this.success = 'Déconnexion réussie !';
+    },
+    
+    toggleGenre(genre, type) {
+      if (type === 'likes') {
+        const index = this.registerForm.preferences.genres_likes.indexOf(genre);
+        if (index > -1) {
+          // Retirer le genre des aimés
+          this.registerForm.preferences.genres_likes.splice(index, 1);
+        } else {
+          // Ajouter aux aimés et retirer des détestés si présent
+          this.registerForm.preferences.genres_likes.push(genre);
+          const dislikeIndex = this.registerForm.preferences.genres_dislikes.indexOf(genre);
+          if (dislikeIndex > -1) {
+            this.registerForm.preferences.genres_dislikes.splice(dislikeIndex, 1);
+          }
+        }
+      } else if (type === 'dislikes') {
+        const index = this.registerForm.preferences.genres_dislikes.indexOf(genre);
+        if (index > -1) {
+          // Retirer le genre des détestés
+          this.registerForm.preferences.genres_dislikes.splice(index, 1);
+        } else {
+          // Ajouter aux détestés et retirer des aimés si présent
+          this.registerForm.preferences.genres_dislikes.push(genre);
+          const likeIndex = this.registerForm.preferences.genres_likes.indexOf(genre);
+          if (likeIndex > -1) {
+            this.registerForm.preferences.genres_likes.splice(likeIndex, 1);
+          }
+        }
+      }
+    },
+    
+    toggleStreamingService(service) {
+      const index = this.registerForm.preferences.streaming_services.indexOf(service);
+      if (index > -1) {
+        // Retirer le service
+        this.registerForm.preferences.streaming_services.splice(index, 1);
+      } else {
+        // Ajouter le service
+        this.registerForm.preferences.streaming_services.push(service);
+      }
     }
   }
 }
@@ -424,13 +532,15 @@ export default {
   max-width: 800px;
   margin: 0 auto;
   padding: 20px;
+  color: #333333; /* Texte foncé pour bien contraster */
 }
 
 .auth-forms {
-  background: #f5f5f5;
+  background: white4;
   padding: 30px;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  color: #333333; /* Texte foncé */
 }
 
 .form-group {
@@ -441,6 +551,7 @@ export default {
   display: block;
   margin-bottom: 5px;
   font-weight: bold;
+  color: #333333; /* Labels en foncé */
 }
 
 .form-group input,
@@ -450,6 +561,8 @@ export default {
   border: 1px solid #ddd;
   border-radius: 4px;
   box-sizing: border-box;
+  color: #333333; /* Texte dans les champs en foncé */
+  background: white; /* Fond blanc pour les champs de saisie */
 }
 
 .form-group select[multiple] {
@@ -458,7 +571,7 @@ export default {
 
 button {
   background: #007bff;
-  color: white;
+  color: black;
   padding: 12px 24px;
   border: none;
   border-radius: 4px;
@@ -479,6 +592,7 @@ button:disabled {
   background: #f8f9fa;
   padding: 30px;
   border-radius: 8px;
+  color: #333333; /* Texte foncé pour le dashboard */
 }
 
 .user-header {
@@ -488,6 +602,11 @@ button:disabled {
   margin-bottom: 30px;
   padding-bottom: 20px;
   border-bottom: 1px solid #dee2e6;
+}
+
+.user-header h2 {
+  color: #333333; /* Titre en foncé */
+  margin: 0;
 }
 
 .user-actions button {
@@ -500,6 +619,7 @@ button:disabled {
   border-radius: 4px;
   margin-bottom: 20px;
   border: 1px solid #dee2e6;
+  color: #333333; /* Texte foncé */
 }
 
 .user-preferences {
@@ -508,6 +628,12 @@ button:disabled {
   border-radius: 4px;
   margin-bottom: 20px;
   border: 1px solid #dee2e6;
+  color: #333333; /* Texte foncé */
+}
+
+.user-preferences h3 {
+  color: #333333; /* Titres en foncé */
+  margin-top: 0;
 }
 
 .preferences-display p {
@@ -581,5 +707,89 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+/* Styles pour les boutons de genres et services */
+.genre-buttons, .streaming-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.genre-btn, .streaming-btn {
+  padding: 10px 16px;
+  border: 2px solid #dee2e6;
+  background: white;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  margin: 0;
+  min-width: 80px;
+  text-align: center;
+}
+
+.genre-btn:hover, .streaming-btn:hover {
+  border-color: #007bff;
+  background: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+}
+
+/* Genres que vous aimez - Bleu */
+.genre-btn.selected {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+  box-shadow: 0 2px 8px rgba(0,123,255,0.4);
+}
+
+/* Genres que vous n'aimez pas - Rouge */
+.genre-btn.dislike.selected {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+  box-shadow: 0 2px 8px rgba(220,53,69,0.4);
+}
+
+/* Services de streaming - Vert */
+.streaming-btn.selected {
+  background: #28a745;
+  color: white;
+  border-color: #28a745;
+  box-shadow: 0 2px 8px rgba(40,167,69,0.4);
+}
+
+.preferences {
+  border: 1px solid #dee2e6;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px 0;
+  background: #f8f9fa;
+  color: #333333; /* Texte foncé pour les préférences */
+}
+
+.preferences h3 {
+  color: #333333; /* Titre des préférences en foncé */
+  margin-top: 0;
+}
+
+/* Ajout de styles pour tous les titres */
+h1, h2, h3, h4, h5, h6 {
+  color: #333333 !important;
+}
+
+/* Ajout de styles pour tous les paragraphes et labels */
+p, label {
+  color: #333333 !important;
+}
+
+/* Styles pour les formulaires */
+.login-form h2, .register-form h2 {
+  color: #333333 !important;
+  text-align: center;
+  margin-bottom: 20px;
 }
 </style>

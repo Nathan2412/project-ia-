@@ -113,6 +113,13 @@ def add_user(new_user):
             from data.movies_series_database import users as default_users
             users = default_users.copy()  # Utiliser une copie pour éviter les mutations involontaires
         
+        # Vérifier l'unicité de l'email
+        user_email = new_user.get('email')
+        if user_email:
+            for existing_user in users:
+                if existing_user.get('email') == user_email:
+                    raise ValueError(f"Un compte avec l'email {user_email} existe déjà")
+        
         # Assigner un nouvel ID unique (plus grand ID actuel + 1)
         if users:
             new_id = max(user.get('id', 0) for user in users) + 1
@@ -206,3 +213,43 @@ def update_user(user):
     except Exception as e:
         print(f"Exception lors de la mise à jour d'un utilisateur: {e}")
         return False
+
+def find_user_by_email(email):
+    """
+    Trouve un utilisateur par son adresse email.
+    
+    Args:
+        email: Adresse email à rechercher
+        
+    Returns:
+        dict: Utilisateur trouvé ou None si non trouvé
+    """
+    try:
+        users = load_users()
+        for user in users:
+            if user.get('email') == email:
+                return user
+        return None
+    except Exception as e:
+        print(f"Erreur lors de la recherche par email: {e}")
+        return None
+
+def find_user_by_name(name):
+    """
+    Trouve un utilisateur par son nom (pour compatibilité).
+    
+    Args:
+        name: Nom à rechercher
+        
+    Returns:
+        dict: Utilisateur trouvé ou None si non trouvé
+    """
+    try:
+        users = load_users()
+        for user in users:
+            if user.get('name') == name:
+                return user
+        return None
+    except Exception as e:
+        print(f"Erreur lors de la recherche par nom: {e}")
+        return None

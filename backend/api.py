@@ -12,13 +12,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.recommendation_engine_v2 import modular_engine
-from src.recommendation_engine import (
-    create_user_profile,
-    get_online_genres
-)
 from data.user_database import load_users, save_users, add_user, update_user
 from src.auth_routes import auth_bp
 from src.middleware import init_auth_middleware, check_user_access, get_current_user, AuthError, handle_auth_error
+from src.email_service import email_service
 
 app = Flask(__name__)
 CORS(app)  # Activer CORS pour permettre les requêtes depuis le frontend
@@ -123,7 +120,11 @@ def update_user_preferences(user_id):
 def get_genres():
     """Récupère la liste des genres disponibles."""
     try:
-        genres = get_online_genres()
+        # Liste de genres par défaut
+        genres = ["Action", "Aventure", "Animation", "Comédie", "Crime", 
+                 "Documentaire", "Drame", "Famille", "Fantaisie", "Histoire", 
+                 "Horreur", "Musique", "Mystère", "Romance", "Science-Fiction", 
+                 "Thriller", "Guerre", "Western"]
         return jsonify(genres)
     except Exception as e:
         return jsonify({
@@ -144,7 +145,8 @@ def get_services():
 @app.route('/api/providers', methods=['GET'])
 def get_api_providers():
     """Récupère l'état des fournisseurs d'API disponibles."""
-    from src.multi_api_manager import api_manager
+    from src.api_providers.multi_api_manager import MultiAPIManager
+    api_manager = MultiAPIManager()
     
     try:
         # Tester tous les fournisseurs
@@ -207,23 +209,6 @@ def add_to_history(user_id, item_id):
             
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la mise à jour de l\'historique: {str(e)}'}), 500
-
-@app.route('/api/providers', methods=['GET'])
-def get_api_providers():
-    """Retourne le statut des fournisseurs d'API et les métriques de performance."""
-    try:
-        # Vérifier l'authentification
-        current_user = get_current_user()
-        if not current_user:
-            return jsonify({'error': 'Authentification requise'}), 401
-        
-        status = modular_engine.get_api_status()
-        return jsonify(status)
-        
-    except AuthError as e:
-        return jsonify({'error': str(e)}), 401
-    except Exception as e:
-        return jsonify({'error': f'Erreur lors de la récupération du statut: {str(e)}'}), 500
 
 @app.route('/api/search', methods=['GET'])
 def search_content():
