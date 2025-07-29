@@ -7,6 +7,8 @@ from flask import Flask, request, jsonify, g
 from flask_cors import CORS
 import os
 import sys
+from werkzeug.security import generate_password_hash
+import json
 
 # Ajouter le répertoire parent au chemin pour pouvoir importer les modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -347,3 +349,45 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8000))
     debug = os.environ.get('FLASK_ENV', 'production') == 'development'
     app.run(debug=debug, host='0.0.0.0', port=port)
+@app.route('/api/register', methods=['POST'])
+def register():
+    try:
+        data = request.get_json()
+
+        name = data.get('username')
+        email = data.get('email')
+        password = data.get('password')
+        preferences = data.get('preferences', {})
+
+        if not name or not email or not password:
+            return jsonify({'error': 'Champs requis manquants'}), 400
+
+        # Vérifie si l'utilisateur existe déjà
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({'error': 'Utilisateur déjà inscrit'}), 409
+
+        # Hash du mot de passe
+        password_hash = generate_password_hash(password)
+
+        # Créer l'utilisateur
+        new_user = User(
+            name=name,
+            email=email,
+            password_hash=password_hash,
+            preferences=preferences  # Si c'est un JSONField ou dict
+        )
+
+        db.session.add(new_user)
+        db.session.commit()
+
+        return jsonify({'message': 'Inscription réussie', 'user': {
+            'id': new_user.id,
+            'name': new_user.name,
+            'email': new_user.email,
+            'preferences': new_user.preferences
+        }}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Erreur lors de l\'inscription: {str(e)}'}), 500
