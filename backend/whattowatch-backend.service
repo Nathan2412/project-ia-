@@ -1,0 +1,22 @@
+[Unit]
+Description=WhatToWatch - Flask Backend
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=notify
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/whattowatch/backend
+Environment=PATH=/home/ubuntu/whattowatch/venv/bin
+Environment=FLASK_ENV=production
+Environment=DATABASE_URL=mysql+pymysql://root:motdepasse123@127.0.0.1:3306/whattowatch
+ExecStart=/home/ubuntu/whattowatch/venv/bin/gunicorn -c gunicorn.conf.py wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+KillMode=mixed
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,13 +1,13 @@
 @echo off
-REM Script pour démarrer le système de recommandation de films (backend + frontend)
+echo 🚀 Démarrage de WhatToWatch Backend (Local)...
+cd /d "c:\Users\berda\Documents\project-ia\project-ia-\backend"
 
-echo ===========================================
-echo Démarrage du système de recommandation
-echo ===========================================
+echo 🌐 Serveur local: http://127.0.0.1:8000
+echo 🌍 Serveur production: http://51.75.124.76/api/
+echo 📝 Pour arrêter, appuyez sur Ctrl+C
 
-echo.
-echo 1. Démarrage de l'API REST (backend)...
-start cmd /k "cd /d %~dp0 && python api.py"
+"C:/Users/berda/Documents/project-ia/project-ia-/.venv/Scripts/python.exe" api.py
+pause
 
 echo.
 echo 2. Démarrage de l'interface utilisateur (frontend)...

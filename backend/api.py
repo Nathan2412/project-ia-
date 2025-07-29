@@ -21,9 +21,15 @@ from src.middleware import init_auth_middleware, check_user_access, get_current_
 app = Flask(__name__)
 CORS(app)  # Activer CORS pour permettre les requêtes depuis le frontend
 
-# Configuration SQLAlchemy pour MariaDB
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:motdepasse123@127.0.0.1:3306/whattowatch'
+# Configuration SQLAlchemy pour MariaDB (local et serveur)
+import os
+DATABASE_URL = os.environ.get('DATABASE_URL', 'mysql+pymysql://root:motdepasse123@127.0.0.1:3306/whattowatch')
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_recycle': 300,
+}
 
 # Initialisation de la base
 db.init_app(app)
@@ -334,23 +340,9 @@ def clear_cache():
     except Exception as e:
         return jsonify({'error': f'Erreur lors du vidage du cache: {str(e)}'}), 500
 
-if __name__ == '__main__':
-    # Configuration pour serveur de production
-    import os
-    
-    # Créer les tables de base de données au démarrage
-    with app.app_context():
-        try:
-            db.create_all()
-            print("✅ Tables de base de données créées/vérifiées")
-        except Exception as e:
-            print(f"❌ Erreur lors de la création des tables: {e}")
-    
-    port = int(os.environ.get('PORT', 8000))
-    debug = os.environ.get('FLASK_ENV', 'production') == 'development'
-    app.run(debug=debug, host='0.0.0.0', port=port)
 @app.route('/api/register', methods=['POST'])
 def register():
+    """Endpoint pour l'inscription des nouveaux utilisateurs."""
     try:
         data = request.get_json()
 
@@ -375,7 +367,8 @@ def register():
             name=name,
             email=email,
             password_hash=password_hash,
-            preferences=preferences  # Si c'est un JSONField ou dict
+            password_salt="",  # Ajouter un salt vide pour la compatibilité
+            preferences=preferences
         )
 
         db.session.add(new_user)
@@ -391,3 +384,19 @@ def register():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Erreur lors de l\'inscription: {str(e)}'}), 500
+
+if __name__ == '__main__':
+    # Créer les tables de base de données au démarrage
+    with app.app_context():
+        try:
+            db.create_all()
+            print("✅ Tables de base de données créées/vérifiées")
+        except Exception as e:
+            print(f"❌ Erreur lors de la création des tables: {e}")
+    
+    port = int(os.environ.get('PORT', 8000))
+    debug = os.environ.get('FLASK_ENV', 'production') == 'development'
+    app.run(debug=debug, host='0.0.0.0', port=port)
+
+# Exposer l'application pour les serveurs WSGI
+application = app
