@@ -9,6 +9,12 @@
       
       <div v-if="isEditing" class="edit-profile">
         <form @submit.prevent="saveChanges">
+          <!-- Nom -->
+          <div class="form-group mb-3">
+            <label class="form-label">Nom d'utilisateur</label>
+            <input type="text" class="form-control" v-model="userPrefs.name" required>
+          </div>
+
           <!-- Genres aimés -->
           <div class="form-group mb-3">
             <label class="form-label">Genres que j'aime</label>
@@ -168,6 +174,7 @@ export default {
     return {
       isEditing: false,
       userPrefs: {
+        name: '',
         genres_likes: [],
         genres_dislikes: [],
         directors_likes: [],
@@ -197,6 +204,7 @@ export default {
     startEditing() {
       // Clone current preferences
       this.userPrefs = {
+        name: this.$store.state.currentUser.name || '',
         genres_likes: [...this.$store.state.currentUser.preferences.genres_likes || []],
         genres_dislikes: [...this.$store.state.currentUser.preferences.genres_dislikes || []],
         directors_likes: [...this.$store.state.currentUser.preferences.directors_likes || []],

@@ -77,3 +77,33 @@ export default {
   }
 }
 </script>
+
+<style>
+#app {
+  min-height: 100vh;
+  min-width: 100vw;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-container {
+  flex: 1;
+  width: 100vw;
+  min-height: 100vh;
+  height: 100%;
+  padding: 20px 0;
+  box-sizing: border-box;
+}
+
+.navbar {
+  width: 100%;
+  z-index: 1000;
+}
+
+footer {
+  margin-top: auto;
+  width: 100%;
+}
+</style>

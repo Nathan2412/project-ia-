@@ -27,15 +27,18 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 # 3. Installer les dépendances
-echo "📦 Installation des dépendances..."
-sudo -u ubuntu "$VENV_DIR/bin/pip" install --upgrade pip
-sudo -u ubuntu "$VENV_DIR/bin/pip" install \
-    flask==3.0.0 \
-    flask-cors==6.0.1 \
-    flask-sqlalchemy==3.1.1 \
-    PyJWT==2.8.0 \
-    pymysql==1.1.0 \
-    gunicorn==21.2.0
+echo "📦 Installation des dépendances Python..."
+/home/ubuntu/whattowatch/venv/bin/pip install --upgrade pip
+/home/ubuntu/whattowatch/venv/bin/pip install -r requirements.txt
+
+echo "🔧 Configuration de la base de données..."
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS whattowatch CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+echo "🧪 Test de l'importation des modules..."
+cd /home/ubuntu/whattowatch/backend
+/home/ubuntu/whattowatch/venv/bin/python -c "import wsgi; print('✅ wsgi.py importé avec succès')"
+/home/ubuntu/whattowatch/venv/bin/python -c "import api; print('✅ api.py importé avec succès')"
+/home/ubuntu/whattowatch/venv/bin/python -c "import models; print('✅ models.py importé avec succès')"
 
 # 4. Copier les fichiers (à adapter selon vos besoins)
 echo "📋 Les fichiers doivent être copiés manuellement dans $BACKEND_DIR"

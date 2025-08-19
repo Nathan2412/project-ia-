@@ -476,11 +476,15 @@ export default {
     },
     
     logout() {
-      localStorage.removeItem('auth_token');
+      this.$store.dispatch('logout');
       this.isAuthenticated = false;
       this.currentUser = {};
       this.recommendations = [];
       this.success = 'Déconnexion réussie !';
+      // Rediriger vers la page de connexion si besoin
+      if (this.$router) {
+        this.$router.push('/login');
+      }
     },
     
     toggleGenre(genre, type) {

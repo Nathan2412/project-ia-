@@ -70,18 +70,15 @@ export default createStore({
     },
     
     // Récupérer les recommandations pour l'utilisateur actuel
-    async fetchRecommendations({ commit, state }, { contentType = 'all', n = 5, streamingService = null }) {
+    async fetchRecommendations({ commit, state }, { contentType = 'all', n = 5, streamingServices = [] }) {
       if (!state.currentUser) return;
-      
       commit('setLoading', true);
       commit('setError', null);
-      
       try {
         let url = `${API_URL}/recommendations/${state.currentUser.id}?content_type=${contentType}&n=${n}`;
-        if (streamingService) {
-          url += `&streaming_service=${streamingService}`;
+        if (streamingServices && streamingServices.length > 0) {
+          url += `&streaming_service=${streamingServices.join(',')}`;
         }
-        
         const response = await axios.get(url);
         commit('setRecommendations', response.data);
       } catch (error) {
@@ -215,6 +212,7 @@ export default createStore({
     logout({ commit }) {
       commit('setCurrentUser', null);
       commit('setRecommendations', []);
+      localStorage.removeItem('auth_token');
     }
   }
 });

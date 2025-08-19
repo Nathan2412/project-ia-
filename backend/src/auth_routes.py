@@ -132,8 +132,8 @@ def register():
             user = User(
                 name=new_user['name'],
                 email=new_user['email'],
-                password_hash=new_user['password_hash'],
-                password_salt=new_user['password_salt'],
+                password_hash=new_user['auth']['password_hash'],
+                password_salt=new_user['auth']['salt'],
                 preferences=new_user['preferences']
             )
             

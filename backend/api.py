@@ -45,6 +45,16 @@ app.register_error_handler(AuthError, handle_auth_error)
 
 # Note: Les utilisateurs sont maintenant gérés par SQLAlchemy via la classe User
 
+# Endpoint de test simple (sans authentification)
+@app.route('/api/ping', methods=['GET'])
+def ping():
+    """Endpoint simple pour tester que l'API fonctionne."""
+    return jsonify({
+        'status': 'ok', 
+        'message': 'WhatToWatch API is running',
+        'version': '2.0'
+    })
+
 @app.route('/api/users', methods=['GET'])
 def get_users():
     """Retourne la liste des utilisateurs (pour admin seulement)."""
@@ -107,6 +117,9 @@ def update_user_preferences(user_id):
         if user.preferences is None:
             user.preferences = {}
         
+        # Mettre à jour le nom si présent
+        if 'name' in data:
+            user.name = data['name']
         # Mettre à jour les préférences
         if 'genres_likes' in data:
             user.preferences['genres_likes'] = data['genres_likes']
@@ -204,6 +217,11 @@ def get_user_recommendations(user_id):
         content_type = request.args.get('content_type', 'all')
         n = int(request.args.get('n', '5'))
         streaming_service = request.args.get('streaming_service', None)
+        # Adapter pour la nouvelle signature (liste)
+        if streaming_service:
+            streaming_services = [streaming_service]
+        else:
+            streaming_services = None
         
         # Vérifier les paramètres
         if content_type not in ['all', 'movies', 'series']:
@@ -215,7 +233,7 @@ def get_user_recommendations(user_id):
             user_id, 
             n=n, 
             content_type=content_type, 
-            streaming_service=streaming_service
+            streaming_services=streaming_services
         )
         return jsonify(recommendations)
         

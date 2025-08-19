@@ -25,7 +25,8 @@ def init_auth_middleware(app):
             '/api/login',
             '/api/register',
             '/api/genres',
-            '/api/services'
+            '/api/services',
+            '/api/ping'
         ]
         
         # Vérifier si la route est publique

@@ -49,7 +49,7 @@ class ModularRecommendationEngine:
         print(f"📊 Fournisseurs actifs: {', '.join(self.api_manager.active_providers)}")
     
     def get_recommendations(self, user_id: int, n: int = 5, content_type: str = 'all', 
-                          streaming_service: Optional[str] = None) -> List[Dict[str, Any]]:
+                          streaming_services: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """
         Obtient des recommandations pour un utilisateur
         
@@ -72,7 +72,7 @@ class ModularRecommendationEngine:
                 return []
             
             # Préparer les préférences utilisateur
-            user_preferences = self._prepare_user_preferences(user, streaming_service)
+            user_preferences = self._prepare_user_preferences(user, streaming_services)
             
             # Convertir le type de contenu
             internal_content_type = ContentTypeConverter.convert_type(
@@ -81,7 +81,7 @@ class ModularRecommendationEngine:
             
             # Vérifier le cache
             cache_key = self.cache_manager.get_cache_key(
-                user_id, n, internal_content_type, streaming_service or ""
+                user_id, n, internal_content_type, ",".join(streaming_services) if streaming_services else ""
             )
             
             cached_result = self.cache_manager.get(cache_key)
@@ -103,12 +103,12 @@ class ModularRecommendationEngine:
                 recommendations
             )
             
-            # Filtrer par service de streaming si spécifié
-            if streaming_service:
-                normalized_service = StreamingServiceMapper.normalize_service_name(streaming_service)
+            # Filtrer par services de streaming si spécifiés
+            if streaming_services:
+                normalized_services = [StreamingServiceMapper.normalize_service_name(s) for s in streaming_services]
                 formatted_recommendations = [
                     rec for rec in formatted_recommendations
-                    if normalized_service in rec.get("streaming_services", [])
+                    if any(service in rec.get("streaming_services", []) for service in normalized_services)
                 ]
             
             # Mettre en cache
@@ -260,31 +260,17 @@ class ModularRecommendationEngine:
                     formatted_item = self._format_search_item(item)
                     if formatted_item:
                         formatted_results.append(formatted_item)
-                
-                response = {
-                    "results": formatted_results,
-                    "total_results": len(formatted_results),
-                    "providers_used": results.get("providers_used", []),
-                    "content_type": content_type
-                }
-                
-                self.cache_manager.set(cache_key, response)
-                
-                response_time = time.time() - start_time
-                self.performance_monitor.record_api_call(response_time, True)
-                
-                return response
-            else:
-                error_response = {
-                    "error": results.get("error", "Impossible de récupérer le contenu tendance"),
-                    "results": [],
-                    "content_type": content_type
-                }
-                
-                response_time = time.time() - start_time
-                self.performance_monitor.record_api_call(response_time, False)
-                
-                return error_response
+
+            # Enrichir chaque recommandation avec les détails TMDb si provider = TMDb
+            tmdb_provider = self.api_manager.providers.get("TMDb")
+            enriched_recommendations = []
+            for rec in recommendations:
+                item = rec.get("item", rec)
+                if item.get("provider") == "TMDb" and tmdb_provider:
+                    details = tmdb_provider.get_details(item.get("id"), item.get("media_type", "movie"))
+                    rec["detailed_info"] = details
+                enriched_recommendations.append(rec)
+
                 
         except Exception as e:
             print(f"❌ Erreur contenu tendance: {e}")
@@ -359,7 +345,7 @@ class ModularRecommendationEngine:
         return None
     
     def _prepare_user_preferences(self, user: Dict[str, Any], 
-                                streaming_service: Optional[str] = None) -> Dict[str, Any]:
+                                streaming_services: Optional[List[str]] = None) -> Dict[str, Any]:
         """Prépare les préférences utilisateur pour le moteur de recommandation"""
         preferences = user.get('preferences', {}).copy()
         preferences['history'] = user.get('history', [])
@@ -384,10 +370,10 @@ class ModularRecommendationEngine:
                 for service in preferences['streaming_services']
             ]
         
-        # Ajouter le service spécifique si demandé
-        if streaming_service:
-            normalized_service = StreamingServiceMapper.normalize_service_name(streaming_service)
-            preferences['filter_by_streaming_service'] = normalized_service
+        # Ajouter les services spécifiques si demandés
+        if streaming_services:
+            normalized_services = [StreamingServiceMapper.normalize_service_name(s) for s in streaming_services]
+            preferences['filter_by_streaming_services'] = normalized_services
         
         return preferences
     
