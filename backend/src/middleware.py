@@ -20,21 +20,41 @@ def init_auth_middleware(app):
         """
         Exécuté avant chaque requête pour gérer l'authentification.
         """
-        # Routes publiques qui ne nécessitent pas d'authentification
-        public_routes = [
+        print(f"[MIDDLEWARE] Requête: {request.method} {request.path}")
+        
+        # Routes publiques qui ne nécessitent pas d'authentification (EXACTES)
+        exact_public_routes = [
             '/api/login',
-            '/api/register',
+            '/api/register', 
+            '/api/users',  # Seulement la liste des utilisateurs (plus nécessaire maintenant)
             '/api/genres',
             '/api/services',
             '/api/ping'
         ]
         
-        # Vérifier si la route est publique
-        if request.endpoint and any(request.path.startswith(route) for route in public_routes):
+        # Vérifier si la route est exactement publique
+        if request.path in exact_public_routes:
+            print(f"[MIDDLEWARE] Route publique exacte: {request.path}")
             return
+        
+        # Vérifier si la route commence par une route publique (pour les sous-routes autorisées)
+        public_prefixes = [
+            '/api/login',  # Inclut /api/login/<id>
+            '/api/register',
+            '/api/genres',
+            '/api/services', 
+            '/api/ping'
+        ]
+        
+        # ATTENTION: /api/users/ID n'est PAS public - nécessite une authentification !
+        for prefix in public_prefixes:
+            if request.path.startswith(prefix):
+                print(f"[MIDDLEWARE] Route publique par préfixe: {request.path} (préfixe: {prefix})")
+                return
         
         # Pour les autres routes, vérifier l'authentification
         if request.path.startswith('/api/'):
+            print(f"[MIDDLEWARE] Route API nécessitant authentification: {request.path}")
             token = None
             
             # Récupérer le token depuis l'en-tête Authorization

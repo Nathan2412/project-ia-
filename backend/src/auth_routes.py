@@ -4,6 +4,12 @@ Gère les endpoints de connexion, déconnexion et inscription.
 """
 
 from flask import Blueprint, request, jsonify
+import sys
+import os
+
+# Ajouter le répertoire parent au chemin pour pouvoir importer les modules
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from src.auth import authenticate_user, create_user_with_password, generate_jwt_token, hash_password, verify_password
 from models import db, User
 from src.middleware import get_current_user, require_auth_for_user

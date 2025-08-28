@@ -19,9 +19,8 @@
           </div>
           <div class="col-md-4">
             <div class="form-group">
-              <label>Service de streaming</label>
-              <select v-model="filters.streamingService" class="form-select">
-                <option value="">Tous les services</option>
+              <label>Services de streaming</label>
+              <select v-model="filters.streamingServices" class="form-select" multiple>
                 <option v-for="service in $store.state.streamingServices" :key="service" :value="service">
                   {{ service.charAt(0).toUpperCase() + service.slice(1) }}
                 </option>
@@ -91,7 +90,7 @@ export default {
     return {
       filters: {
         contentType: 'all',
-        streamingService: '',
+        streamingServices: [],
         n: 10
       }
     };
@@ -108,7 +107,7 @@ export default {
       this.$store.dispatch('fetchRecommendations', {
         contentType: this.filters.contentType,
         n: this.filters.n,
-        streamingService: this.filters.streamingService || null
+        streamingServices: this.filters.streamingServices
       });
     },    truncateText(text, length) {
       if (!text) return '';

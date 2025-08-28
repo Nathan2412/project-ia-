@@ -261,15 +261,37 @@ class ModularRecommendationEngine:
                     if formatted_item:
                         formatted_results.append(formatted_item)
 
-            # Enrichir chaque recommandation avec les détails TMDb si provider = TMDb
-            tmdb_provider = self.api_manager.providers.get("TMDb")
-            enriched_recommendations = []
-            for rec in recommendations:
-                item = rec.get("item", rec)
-                if item.get("provider") == "TMDb" and tmdb_provider:
-                    details = tmdb_provider.get_details(item.get("id"), item.get("media_type", "movie"))
-                    rec["detailed_info"] = details
-                enriched_recommendations.append(rec)
+                # Enrichir chaque recommandation avec les détails TMDb si provider = TMDb
+                tmdb_provider = self.api_manager.providers.get("TMDb")
+                enriched_recommendations = []
+                for rec in formatted_results:
+                    item = rec.get("item", rec)
+                    if item.get("provider") == "TMDb" and tmdb_provider:
+                        details = tmdb_provider.get_details(item.get("id"), item.get("media_type", "movie"))
+                        rec["detailed_info"] = details
+                    enriched_recommendations.append(rec)
+
+                # Cache et retour des résultats
+                response_time = time.time() - start_time
+                self.performance_monitor.record_api_call(response_time, True)
+                
+                result = {
+                    "results": enriched_recommendations,
+                    "content_type": content_type,
+                    "total_results": len(enriched_recommendations)
+                }
+                
+                self.cache_manager.set(cache_key, result)
+                return result
+            else:
+                # Aucun résultat trouvé
+                response_time = time.time() - start_time
+                self.performance_monitor.record_api_call(response_time, True)
+                return {
+                    "results": [],
+                    "content_type": content_type,
+                    "total_results": 0
+                }
 
                 
         except Exception as e:

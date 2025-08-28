@@ -15,7 +15,6 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.recommendation_engine_v2 import modular_engine
 from models import db, User
-from src.auth_routes import auth_bp
 from src.middleware import init_auth_middleware, check_user_access, get_current_user, AuthError, handle_auth_error
 
 app = Flask(__name__)
@@ -37,8 +36,8 @@ db.init_app(app)
 # Initialiser le middleware d'authentification
 init_auth_middleware(app)
 
-# Enregistrer les routes d'authentification
-app.register_blueprint(auth_bp)
+# Note: Les routes d'authentification sont gérées directement dans ce fichier
+# pour éviter les conflits de routes
 
 # Gestionnaire d'erreur pour l'authentification
 app.register_error_handler(AuthError, handle_auth_error)
@@ -57,16 +56,58 @@ def ping():
 
 @app.route('/api/users', methods=['GET'])
 def get_users():
-    """Retourne la liste des utilisateurs (pour admin seulement)."""
-    # Cette route pourrait être limitée aux administrateurs
-    # Pour l'instant, on retourne une liste vide pour des raisons de sécurité
-    return jsonify([])
+    """DÉSACTIVÉ pour des raisons de sécurité."""
+    return jsonify({'error': 'Endpoint désactivé. Utilisez /api/register pour créer un compte.'}), 403
+
+@app.route('/api/login', methods=['POST'])
+def login_user():
+    """Connexion utilisateur avec email et mot de passe."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Données JSON manquantes'}), 400
+            
+        email = data.get('email')
+        password = data.get('password')
+        
+        if not email or not password:
+            return jsonify({'error': 'Email et mot de passe requis'}), 400
+            
+        # Rechercher l'utilisateur par email
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            return jsonify({'error': 'Email ou mot de passe incorrect'}), 401
+            
+        # Vérifier le mot de passe avec Werkzeug (compatible avec notre système d'inscription)
+        from werkzeug.security import check_password_hash
+        if not check_password_hash(user.password_hash, password):
+            return jsonify({'error': 'Email ou mot de passe incorrect'}), 401
+        
+        # Générer un token JWT pour cet utilisateur
+        from src.auth import generate_jwt_token
+        token = generate_jwt_token(user.id, user.name)
+        
+        # Retourner les données utilisateur avec le token
+        response_data = {
+            'token': token,
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email or '',
+                'preferences': user.preferences or {}
+            }
+        }
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        return jsonify({'error': f'Erreur lors de la connexion: {str(e)}'}), 500
 
 @app.route('/api/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
-    """Retourne un utilisateur spécifique."""
+    """Retourne un utilisateur spécifique - NÉCESSITE UNE AUTHENTIFICATION."""
     try:
-        # Vérifier que l'utilisateur connecté peut accéder à ce profil
+        # Vérifier l'authentification
         if not check_user_access(user_id):
             return jsonify({'error': 'Accès non autorisé à ce compte'}), 403
         
@@ -74,30 +115,63 @@ def get_user(user_id):
         if not user:
             return jsonify({'error': 'Utilisateur non trouvé'}), 404
         
-        # Ne pas exposer l'historique et les informations d'authentification
+        # Utilisateur authentifié - retourner les détails complets
         sanitized_user = {
             'id': user.id,
             'name': user.name,
             'email': user.email,
-            'preferences': {
-                'genres_likes': user.preferences.get('genres_likes', []) if user.preferences else [],
-                'genres_dislikes': user.preferences.get('genres_dislikes', []) if user.preferences else [],
-                'keywords_likes': user.preferences.get('keywords_likes', []) if user.preferences else [],
-                'rating_min': user.preferences.get('rating_min', 7.0) if user.preferences else 7.0,
-                'streaming_services': user.preferences.get('streaming_services', []) if user.preferences else []
-            }
+            'preferences': user.preferences or {},
+            'watch_history': user.preferences.get('watch_history', []) if user.preferences else []
         }
         return jsonify(sanitized_user)
-        
-        return jsonify({'error': 'Utilisateur non trouvé'}), 404
         
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la récupération de l\'utilisateur: {str(e)}'}), 500
 
 @app.route('/api/users', methods=['POST'])
 def create_user():
-    """Crée un nouvel utilisateur (désactivé - utiliser /api/register)."""
-    return jsonify({'error': 'Utiliser /api/register pour créer un compte'}), 400
+    """Crée un nouvel utilisateur."""
+    try:
+        data = request.get_json()
+        
+        # Extraire les données
+        name = data.get('name')
+        email = data.get('email', f"{name}@example.com")  # Email par défaut si non fourni
+        preferences = data
+        
+        if not name:
+            return jsonify({'error': 'Le nom est requis'}), 400
+        
+        # Vérifier si l'utilisateur existe déjà par nom
+        existing_user = User.query.filter_by(name=name).first()
+        if existing_user:
+            return jsonify({'error': 'Un utilisateur avec ce nom existe déjà'}), 409
+        
+        # Créer l'utilisateur sans mot de passe (système simplifié)
+        new_user = User(
+            name=name,
+            email=email,
+            password_hash="",  # Pas de mot de passe pour le moment
+            password_salt="",  
+            preferences=preferences
+        )
+        
+        db.session.add(new_user)
+        db.session.commit()
+        
+        # Retourner l'utilisateur créé avec ses préférences
+        user_data = {
+            'id': new_user.id,
+            'name': new_user.name,
+            'email': new_user.email,
+            'preferences': new_user.preferences or {}
+        }
+        
+        return jsonify(user_data), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Erreur lors de la création de l\'utilisateur: {str(e)}'}), 500
 
 @app.route('/api/users/<int:user_id>', methods=['PUT'])
 def update_user_preferences(user_id):
@@ -219,7 +293,8 @@ def get_user_recommendations(user_id):
         streaming_service = request.args.get('streaming_service', None)
         # Adapter pour la nouvelle signature (liste)
         if streaming_service:
-            streaming_services = [streaming_service]
+            # Si c'est une string séparée par virgule, diviser en liste
+            streaming_services = streaming_service.split(',') if ',' in streaming_service else [streaming_service]
         else:
             streaming_services = None
         
@@ -239,6 +314,43 @@ def get_user_recommendations(user_id):
         
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la récupération des recommandations: {str(e)}'}), 500
+
+@app.route('/api/users/<int:user_id>/history', methods=['POST'])
+def add_to_user_history(user_id):
+    """Ajoute un élément à l'historique d'un utilisateur (nouvelle route)."""
+    try:
+        # Vérifier que l'utilisateur connecté peut modifier cet historique
+        if not check_user_access(user_id):
+            return jsonify({'error': 'Accès non autorisé à ce compte'}), 403
+        
+        data = request.get_json()
+        item = data.get('item', {})
+        
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+        
+        # Initialiser les préférences si elles n'existent pas
+        if user.preferences is None:
+            user.preferences = {}
+        
+        # Ajouter à l'historique
+        if 'watch_history' not in user.preferences:
+            user.preferences['watch_history'] = []
+        
+        # Éviter les doublons
+        history = user.preferences['watch_history']
+        if not any(h.get('id') == item.get('id') and h.get('content_type') == item.get('content_type') for h in history):
+            user.preferences['watch_history'].append(item)
+            # Marquer comme modifié pour SQLAlchemy
+            user.preferences = user.preferences.copy()
+            db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Ajouté à l\'historique'})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Erreur lors de l\'ajout à l\'historique: {str(e)}'}), 500
 
 @app.route('/api/history/<int:user_id>/<item_id>', methods=['POST'])
 def add_to_history(user_id, item_id):
@@ -364,7 +476,7 @@ def register():
     try:
         data = request.get_json()
 
-        name = data.get('username')
+        name = data.get('username') or data.get('name')
         email = data.get('email')
         password = data.get('password')
         preferences = data.get('preferences', {})
@@ -392,16 +504,52 @@ def register():
         db.session.add(new_user)
         db.session.commit()
 
-        return jsonify({'message': 'Inscription réussie', 'user': {
-            'id': new_user.id,
-            'name': new_user.name,
-            'email': new_user.email,
-            'preferences': new_user.preferences
-        }}), 201
+        # Générer un token JWT pour cet utilisateur
+        from src.auth import generate_jwt_token
+        token = generate_jwt_token(new_user.id, new_user.name)
+
+        return jsonify({
+            'message': 'Inscription réussie', 
+            'token': token,
+            'user': {
+                'id': new_user.id,
+                'name': new_user.name,
+                'email': new_user.email,
+                'preferences': new_user.preferences or {}
+            }
+        }), 201
 
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Erreur lors de l\'inscription: {str(e)}'}), 500
+
+@app.route('/api/verify-token', methods=['GET'])
+def verify_token():
+    """Vérifier la validité d'un token JWT."""
+    try:
+        # Le middleware vérifie déjà le token et stocke l'utilisateur dans g
+        current_user = get_current_user()
+        if not current_user:
+            return jsonify({'error': 'Token invalide'}), 401
+            
+        # Récupérer les données complètes de l'utilisateur
+        user = User.query.get(current_user['user_id'])
+        if not user:
+            return jsonify({'error': 'Utilisateur non trouvé'}), 404
+            
+        response_data = {
+            'user': {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email or '',
+                'preferences': user.preferences or {}
+            }
+        }
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        return jsonify({'error': f'Erreur lors de la vérification: {str(e)}'}), 500
 
 if __name__ == '__main__':
     # Créer les tables de base de données au démarrage
