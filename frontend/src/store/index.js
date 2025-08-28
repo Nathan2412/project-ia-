@@ -1,8 +1,15 @@
 import { createStore } from 'vuex';
 import axios from 'axios';
 
-// URL de base de l'API - utilise la variable d'environnement ou une valeur par défaut
-const API_URL = process.env.VUE_APP_API_URL || 'http://localhost:5000/api';
+// URL de base de l'API - configuration dynamique selon l'environnement
+const API_URL = (() => {
+  // En développement local
+  if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
+    return process.env.VUE_APP_API_URL || 'http://localhost:5000/api';
+  }
+  // En production
+  return `${window.location.protocol}//${window.location.hostname}/api`;
+})();
 
 export default createStore({
   state: {
@@ -75,15 +82,31 @@ export default createStore({
       commit('setLoading', true);
       commit('setError', null);
       try {
+        // Construction de l'URL avec gestion des services de streaming
         let url = `${API_URL}/recommendations/${state.currentUser.id}?content_type=${contentType}&n=${n}`;
+        
+        // Support du format moderne streamingServices (liste)
         if (streamingServices && streamingServices.length > 0) {
-          url += `&streaming_service=${streamingServices.join(',')}`;
+          // Utiliser le nouveau paramètre streaming_services au lieu de streaming_service
+          url += `&streaming_services=${encodeURIComponent(streamingServices.join(','))}`;
         }
-        const response = await axios.get(url);
+        
+        console.log('🔍 Fetching recommendations from:', url);
+        
+        // Ajouter l'authentification si nécessaire
+        const headers = {};
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await axios.get(url, { headers });
+        console.log('✅ Recommendations received:', response.data);
+        
         commit('setRecommendations', response.data);
       } catch (error) {
-        commit('setError', 'Erreur lors de la récupération des recommandations');
-        console.error(error);
+        console.error('❌ Error fetching recommendations:', error);
+        commit('setError', `Erreur lors de la récupération des recommandations: ${error.response?.data?.error || error.message}`);
       } finally {
         commit('setLoading', false);
       }
@@ -128,12 +151,23 @@ export default createStore({
       commit('setError', null);
       
       try {
-        const response = await axios.get(`${API_URL}/users/${userId}`);
+        console.log('🔍 Attempting login for user ID:', userId);
+        
+        // Ajouter l'authentification si nécessaire
+        const headers = {};
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await axios.get(`${API_URL}/users/${userId}`, { headers });
+        console.log('✅ Login successful:', response.data);
+        
         commit('setCurrentUser', response.data);
         return true;
       } catch (error) {
-        commit('setError', 'Erreur lors de la connexion');
-        console.error(error);
+        console.error('❌ Login error:', error);
+        commit('setError', `Erreur lors de la connexion: ${error.response?.data?.error || error.message}`);
         return false;
       } finally {
         commit('setLoading', false);

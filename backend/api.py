@@ -17,7 +17,9 @@ from src.recommendation_engine_v2 import modular_engine
 from models import db, User
 from src.middleware import init_auth_middleware, check_user_access, get_current_user, AuthError, handle_auth_error
 
-app = Flask(__name__)
+# Configuration des fichiers statiques pour le frontend
+static_folder = os.path.join(os.path.dirname(__file__), 'static')
+app = Flask(__name__, static_folder=static_folder, static_url_path='')
 CORS(app)  # Activer CORS pour permettre les requêtes depuis le frontend
 
 # Configuration SQLAlchemy pour MariaDB (local et serveur)
@@ -567,6 +569,30 @@ def verify_token():
         
     except Exception as e:
         return jsonify({'error': f'Erreur lors de la vérification: {str(e)}'}), 500
+
+# ===== ROUTES POUR SERVIR LE FRONTEND =====
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve_frontend(path):
+    """Servir les fichiers du frontend Vue.js"""
+    from flask import send_from_directory, send_file
+    
+    static_folder = os.path.join(os.path.dirname(__file__), 'static')
+    
+    # Si le fichier existe, le servir
+    if path and os.path.exists(os.path.join(static_folder, path)):
+        return send_from_directory(static_folder, path)
+    
+    # Pour toutes les autres routes (SPA), servir index.html
+    index_path = os.path.join(static_folder, 'index.html')
+    if os.path.exists(index_path):
+        return send_file(index_path)
+    
+    # Fallback si pas de frontend compilé
+    return jsonify({
+        'message': 'WhatToWatch API is running',
+        'status': 'Frontend not built yet - run build script first'
+    })
 
 if __name__ == '__main__':
     # Créer les tables de base de données au démarrage
