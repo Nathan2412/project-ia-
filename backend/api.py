@@ -290,13 +290,21 @@ def get_user_recommendations(user_id):
         
         content_type = request.args.get('content_type', 'all')
         n = int(request.args.get('n', '5'))
+        
+        # Gérer les services de streaming (format flexible)
+        streaming_services = None
         streaming_service = request.args.get('streaming_service', None)
-        # Adapter pour la nouvelle signature (liste)
-        if streaming_service:
-            # Si c'est une string séparée par virgule, diviser en liste
+        streaming_services_param = request.args.get('streaming_services', None)
+        
+        if streaming_services_param:
+            # Format moderne avec liste
+            if isinstance(streaming_services_param, str):
+                streaming_services = streaming_services_param.split(',') if ',' in streaming_services_param else [streaming_services_param]
+            else:
+                streaming_services = streaming_services_param
+        elif streaming_service:
+            # Format legacy avec service unique
             streaming_services = streaming_service.split(',') if ',' in streaming_service else [streaming_service]
-        else:
-            streaming_services = None
         
         # Vérifier les paramètres
         if content_type not in ['all', 'movies', 'series']:
@@ -304,12 +312,21 @@ def get_user_recommendations(user_id):
         if n < 1 or n > 20:  # Limiter le nombre de recommandations
             n = 5
             
+        # Debug - Log des paramètres
+        print(f"🔍 DEBUG API Recommendations:")
+        print(f"  - user_id: {user_id}")
+        print(f"  - content_type: {content_type}")
+        print(f"  - n: {n}")
+        print(f"  - streaming_services: {streaming_services}")
+            
         recommendations = modular_engine.get_recommendations(
             user_id, 
             n=n, 
             content_type=content_type, 
             streaming_services=streaming_services
         )
+        
+        print(f"✅ Recommandations générées: {len(recommendations)}")
         return jsonify(recommendations)
         
     except Exception as e:

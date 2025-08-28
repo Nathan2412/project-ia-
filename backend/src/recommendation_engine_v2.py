@@ -66,13 +66,23 @@ class ModularRecommendationEngine:
         start_time = time.time()
         
         try:
+            print(f"🔍 DEBUG Engine - get_recommendations called:")
+            print(f"  - user_id: {user_id}")
+            print(f"  - n: {n}")
+            print(f"  - content_type: {content_type}")
+            print(f"  - streaming_services: {streaming_services}")
+            
             # Trouver l'utilisateur
             user = self._get_user_by_id(user_id)
             if not user:
+                print(f"❌ Utilisateur {user_id} non trouvé")
                 return []
+            
+            print(f"✅ Utilisateur trouvé: {user.get('name', 'Sans nom')}")
             
             # Préparer les préférences utilisateur
             user_preferences = self._prepare_user_preferences(user, streaming_services)
+            print(f"✅ Préférences préparées: {list(user_preferences.keys())}")
             
             # Convertir le type de contenu
             internal_content_type = ContentTypeConverter.convert_type(
@@ -122,6 +132,12 @@ class ModularRecommendationEngine:
             
         except Exception as e:
             print(f"❌ Erreur génération recommandations: {e}")
+            print(f"   Type d'erreur: {type(e).__name__}")
+            
+            # Afficher la stack trace complète pour débugger
+            import traceback
+            traceback.print_exc()
+            
             response_time = time.time() - start_time
             self.performance_monitor.record_api_call(response_time, False)
             return []
