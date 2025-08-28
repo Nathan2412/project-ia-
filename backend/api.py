@@ -10,8 +10,10 @@ import sys
 from werkzeug.security import generate_password_hash
 import json
 
-# Ajouter le répertoire parent au chemin pour pouvoir importer les modules
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Ajouter le répertoire courant au chemin pour pouvoir importer les modules
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 from src.recommendation_engine_v2 import modular_engine
 from models import db, User

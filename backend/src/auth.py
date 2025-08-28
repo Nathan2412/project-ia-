@@ -157,8 +157,10 @@ def create_user_with_password(name: str, email: str, password: str, **preference
     import sys
     import os
     
-    # Ajouter le répertoire parent au chemin pour pouvoir importer les modules
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # Ajouter le répertoire backend au chemin pour pouvoir importer les modules
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
     
     try:
         from models import User
@@ -224,8 +226,10 @@ def authenticate_user(email: str, password: str) -> dict:
     import sys
     import os
     
-    # Ajouter le répertoire parent au chemin pour pouvoir importer les modules
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # Ajouter le répertoire backend au chemin pour pouvoir importer les modules
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if backend_dir not in sys.path:
+        sys.path.insert(0, backend_dir)
     
     try:
         from models import User

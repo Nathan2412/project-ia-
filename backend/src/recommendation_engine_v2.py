@@ -8,7 +8,9 @@ import os
 from typing import Dict, List, Any, Optional
 
 # Ajouter le répertoire parent au chemin
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 # Import des modules de base
 from data.user_database import load_users, update_user

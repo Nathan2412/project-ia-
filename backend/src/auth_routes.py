@@ -7,8 +7,10 @@ from flask import Blueprint, request, jsonify
 import sys
 import os
 
-# Ajouter le répertoire parent au chemin pour pouvoir importer les modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ajouter le répertoire backend au chemin pour pouvoir importer les modules
+backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 from src.auth import authenticate_user, create_user_with_password, generate_jwt_token, hash_password, verify_password
 from models import db, User

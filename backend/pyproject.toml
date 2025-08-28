@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "whattowatch-backend"
+version = "2.0.0"
+description = "Backend API pour le système de recommandation WhatToWatch"
+authors = [{name = "WhatToWatch Team"}]
+requires-python = ">=3.8"
+dependencies = [
+    "flask>=2.3.0",
+    "flask-cors>=4.0.0",
+    "flask-sqlalchemy>=3.0.0",
+    "pymysql>=1.1.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "data*"]
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.pylsp-mypy]
+enabled = true
+live_mode = true
+
+[tool.python]
+path = "./venv/Scripts/python.exe"
