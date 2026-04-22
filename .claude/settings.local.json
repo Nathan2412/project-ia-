@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast; ast.parse\\(open\\('api.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('config.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('models.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('src/auth.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('src/middleware.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('src/recommendation_engine_v2.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK - syntaxe Python valide'\\)\")",
+      "Bash(ls venv/Scripts/python.exe)",
+      "Bash(venv/Scripts/python.exe -c \"import ast, pathlib; [ast.parse\\(p.read_text\\(encoding='utf-8'\\)\\) for p in [pathlib.Path\\('api.py'\\), pathlib.Path\\('config.py'\\), pathlib.Path\\('models.py'\\), pathlib.Path\\('src/auth.py'\\), pathlib.Path\\('src/middleware.py'\\), pathlib.Path\\('src/recommendation_engine_v2.py'\\), pathlib.Path\\('src/recommendation_scoring.py'\\), pathlib.Path\\('src/recommendation_utils.py'\\)]]; print\\('OK - syntaxe Python valide'\\)\")",
+      "Bash(./venv/bin/python -c ' *)"
+    ]
+  }
+}

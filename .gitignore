@@ -1,9 +1,11 @@
-# .gitignore
 # Python
 __pycache__/
 *.py[cod]
 *.sqlite3
+*.db
 instance/
+venv/
+.venv/
 .env
 *.log
 
@@ -11,8 +13,11 @@ instance/
 node_modules/
 dist/
 .env.local
-*.log
 
-# VSCode
+# IDE
 .vscode/
+.idea/
 
+# OS
+.DS_Store
+Thumbs.db

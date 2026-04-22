@@ -1,4 +1,5 @@
-<template>  <div id="app">
+<template>
+  <div id="app">
     <nav class="navbar navbar-expand-lg navbar-light bg-white">
       <div class="container">
         <router-link class="navbar-brand" to="/">WhatToWatch</router-link>
@@ -27,13 +28,13 @@
         </div>
       </div>
     </nav>
-    
+
     <div class="app-container">
       <router-view/>
     </div>
-    
+
     <NotificationSystem ref="notifications" />
-    
+
     <footer class="bg-light py-4 mt-5">
       <div class="container text-center">
         <p>© 2025 FilmRecommender - Système de recommandation de films et séries</p>
@@ -52,24 +53,33 @@ export default {
   },
   computed: {
     isLoggedIn() {
-      return this.$store.state.currentUser !== null;
+      return this.$store.getters.isLoggedIn;
     },
     currentUser() {
-      return this.$store.state.currentUser || {};
+      return this.$store.state.currentUser || { name: '' };
+    }
+  },
+  async created() {
+    // Au démarrage, vérifier la validité du token côté backend
+    // pour éviter d'afficher un faux état connecté
+    if (localStorage.getItem('auth_token')) {
+      await this.$store.dispatch('verifyToken');
     }
   },
   methods: {
-    logout() {
-      this.$store.commit('setCurrentUser', null);
+    async logout() {
+      await this.$store.dispatch('logout');
       this.$router.push('/login');
-      this.$refs.notifications.success('Vous avez été déconnecté avec succès.');
+      if (this.$refs.notifications) {
+        this.$refs.notifications.success('Vous avez été déconnecté avec succès.');
+      }
     },
-    // Méthodes pour les notifications accessibles globalement
     notify(message, type = 'info', timeout = 5000) {
-      return this.$refs.notifications.addNotification(message, type, timeout);
+      if (this.$refs.notifications) {
+        return this.$refs.notifications.addNotification(message, type, timeout);
+      }
     }
   },
-  // Rendre les méthodes de notification accessibles globalement
   provide() {
     return {
       notify: this.notify
@@ -81,18 +91,13 @@ export default {
 <style>
 #app {
   min-height: 100vh;
-  min-width: 100vw;
-  width: 100vw;
-  height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .app-container {
   flex: 1;
-  width: 100vw;
-  min-height: 100vh;
-  height: 100%;
+  width: 100%;
   padding: 20px 0;
   box-sizing: border-box;
 }

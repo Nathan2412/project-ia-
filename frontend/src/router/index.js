@@ -6,29 +6,10 @@ import Profile from '../views/Profile.vue';
 import store from '../store';
 
 const routes = [
-  {
-    path: '/',
-    name: 'Home',
-    component: Home
-  },
-  {
-    path: '/login',
-    name: 'Login',
-    component: Login,
-    meta: { guestOnly: true }
-  },
-  {
-    path: '/recommendations',
-    name: 'Recommendations',
-    component: Recommendations,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/profile',
-    name: 'Profile',
-    component: Profile,
-    meta: { requiresAuth: true }
-  }
+  { path: '/', name: 'Home', component: Home },
+  { path: '/login', name: 'Login', component: Login, meta: { guestOnly: true } },
+  { path: '/recommendations', name: 'Recommendations', component: Recommendations, meta: { requiresAuth: true } },
+  { path: '/profile', name: 'Profile', component: Profile, meta: { requiresAuth: true } }
 ];
 
 const router = createRouter({
@@ -36,30 +17,21 @@ const router = createRouter({
   routes
 });
 
-// Navigation guards
 router.beforeEach((to, from, next) => {
-  const isLoggedIn = store.state.currentUser !== null;
-  
+  const isLoggedIn = store.getters.isLoggedIn;
+
   if (to.matched.some(record => record.meta.requiresAuth)) {
-    // Cette route nécessite d'être authentifié
     if (!isLoggedIn) {
-      next({
-        path: '/login',
-        query: { redirect: to.fullPath }
-      });
-    } else {
-      next();
+      next({ path: '/login', query: { redirect: to.fullPath } });
+      return;
     }
   } else if (to.matched.some(record => record.meta.guestOnly)) {
-    // Cette route est réservée aux invités
     if (isLoggedIn) {
       next({ path: '/' });
-    } else {
-      next();
+      return;
     }
-  } else {
-    next();
   }
+  next();
 });
 
 export default router;

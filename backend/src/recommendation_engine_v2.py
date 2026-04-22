@@ -384,11 +384,21 @@ class ModularRecommendationEngine:
                 return user
         return None
     
-    def _prepare_user_preferences(self, user: Dict[str, Any], 
+    def _prepare_user_preferences(self, user: Dict[str, Any],
                                 streaming_services: Optional[List[str]] = None) -> Dict[str, Any]:
         """Prépare les préférences utilisateur pour le moteur de recommandation"""
         preferences = user.get('preferences', {}).copy()
-        preferences['history'] = user.get('history', [])
+        # L'historique peut être stocké soit comme liste d'IDs (legacy),
+        # soit comme liste d'objets {id, title, content_type} (nouveau format)
+        watch_history = preferences.get('watch_history') or user.get('history', [])
+        history_ids = []
+        for h in watch_history:
+            if isinstance(h, dict):
+                if h.get('id') is not None:
+                    history_ids.append(str(h['id']))
+            else:
+                history_ids.append(str(h))
+        preferences['history'] = history_ids
         
         # Normaliser les genres
         if 'genres_likes' in preferences:
@@ -471,10 +481,12 @@ class ModularRecommendationEngine:
 modular_engine = ModularRecommendationEngine()
 
 # Fonctions de compatibilité avec l'ancien système
-def get_recommendations(user_id: int, n: int = 5, content_type: str = 'all', 
+def get_recommendations(user_id: int, n: int = 5, content_type: str = 'all',
                        streaming_service: Optional[str] = None) -> List[Dict[str, Any]]:
     """Fonction de compatibilité pour l'ancienne API"""
-    return modular_engine.get_recommendations(user_id, n, content_type, streaming_service)
+    # Convertir le paramètre single vers list pour correspondre à la nouvelle signature
+    services_list = [streaming_service] if streaming_service else None
+    return modular_engine.get_recommendations(user_id, n, content_type, services_list)
 
 def search_multi_api(query: str, content_type: str = "all", max_results: int = 20) -> List[Dict[str, Any]]:
     """Fonction de compatibilité pour la recherche multi-API"""

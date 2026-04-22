@@ -3,11 +3,8 @@ Gestionnaire multi-API version 2.0
 Architecture modulaire pour gérer plusieurs fournisseurs d'API de manière optimisée
 """
 
-import asyncio
-import aiohttp
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Any, Union
-import time
+from typing import Dict, List, Any
 
 from .tmdb_provider import TMDbProvider
 from .watchmode_provider import WatchmodeProvider
